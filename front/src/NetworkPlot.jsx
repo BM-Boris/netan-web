@@ -23,9 +23,7 @@ const colType = (col, data) => {
   return vals.every(isNum) && new Set(vals.map(Number)).size >= NUM_UNIQUE_THRESHOLD
     ? 'continuous' : 'categorical';
 };
-const palette  = ['red','blue','green','orange','purple','brown','pink','gray','teal','gold',
-                  'cyan','magenta','lime','olive','maroon','navy','silver','violet','indigo',
-                  'coral','khaki','turquoise','tan'];
+
 const symbols  = ['circle','square','diamond','triangle-up','triangle-down','cross','x','star'];
 const safeId   = s => String(s).replace(/[^A-Za-z0-9_-]/g, '_');
 
@@ -99,6 +97,70 @@ const Panel = ({
 
 /* ───────── main component ───────── */
 const NetworkPlot = ({ nodes, edges }) => {
+
+  const theme = useTheme();
+
+  /*─────────────────────────────────────────────
+  Палитры для узлов, индекс‑к‑индексу совпадают
+  (№0 всегда «тёплый красный», №1 — холодный синий …)
+─────────────────────────────────────────────*/
+const lightPalette = [
+  '#c0392b', // 0 red
+  '#2980b9', // 1 blue
+  '#27ae60', // 2 green
+  '#e67e22', // 3 orange
+  '#8e44ad', // 4 purple
+  '#8d6e63', // 5 brown
+  '#d81b60', // 6 pink
+  '#7f8c8d', // 7 gray
+  '#00897b', // 8 teal
+  '#f4c20d', // 9 gold
+  '#00acc1', // 10 cyan
+  '#ad1457', // 11 magenta
+  '#afc52f', // 12 lime
+  '#556b2f', // 13 olive
+  '#6d214f', // 14 maroon
+  '#303f9f', // 15 navy
+  '#bdc3c7', // 16 silver
+  '#9b59b6', // 17 violet
+  '#3f51b5', // 18 indigo
+  '#ff7043', // 19 coral
+  '#c0b283', // 20 khaki
+  '#40e0d0', // 21 turquoise
+];
+
+const darkPalette = [
+  '#ff4d6d', // 0 neon‑rose          ← тёплый красный
+  '#2ecfff', // 1 electric‑cyan      ← холодный синий
+  '#13ffae', // 2 mint‑green         ← яркий зелёный
+  '#ff9e2c', // 3 neon‑orange        ← тёплый оранж
+  '#c792ff', // 4 lavender‑glow      ← фиолетовый
+  '#b87333', // 5 copper             ← тёплый «brown» акцент
+  '#ff6ec7', // 6 neon‑pink          ← розовый
+  '#b0bec5', // 7 steel‑gray         ← нейтральный
+  '#1cf0c8', // 8 teal‑glow          ← циано‑зелёный
+  '#ffd95c', // 9 light‑amber        ← жёлтый / gold
+  '#46cfff', // 10 neon‑sky          ← холодный cyan
+  '#ff4fff', // 11 hot‑magenta       ← магента
+  '#7dff3b', // 12 lime‑flash        ← лайм
+  '#9ccc65', // 13 soft‑olive        ← оливковый
+  '#ff5e99', // 14 pink‑flash        ← maroon‑family, но ярче
+  '#5c6cff', // 15 cobalt‑navy       ← «navy», но насыщенный
+  '#9ea7ff', // 16 pale‑indigo‑silver
+  '#b388ff', // 17 pastel‑violet     ← мягкий фиолет
+  '#7ea2ff', // 18 indigo‑glow       ← яркий индиго
+  '#ff8a65', // 19 coral‑pop
+  '#e7d691', // 20 khaki‑light
+  '#63ffda', // 21 emerald‑aqua
+];
+
+
+  // финальный массив
+  const palette = theme.palette.mode === 'dark' ? darkPalette : lightPalette;
+
+
+
+
   /* dynamic column list */
   const cols = Object.keys(nodes[0] || {}).filter(
     k => !['id','x','y','compound','display_id'].includes(k)
@@ -162,7 +224,7 @@ const NetworkPlot = ({ nodes, edges }) => {
     cVals.forEach((v,i) => { cMap[v] = palette[i % palette.length]; });
     sVals.forEach((v,i) => { sMap[v] = symbols[i % symbols.length]; });
     return { keys, cMap, sMap, cType: colType(colorBy, nodes) };
-  }, [nodes, colorBy, shapeBy, gKey]);
+  }, [nodes, colorBy, shapeBy, gKey, theme.palette.mode]);
 
   /* traces */
   const data = useMemo(() => {
