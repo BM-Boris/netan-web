@@ -118,15 +118,15 @@ const DataUploadWithType = ({ onFilesChange, onSyncChange }) => {
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
       <Grow in={true} timeout={500}>
       <Card 
-        sx={{ 
+        sx={(theme) => ({ 
           mt: 4, 
           borderRadius: 2, 
           boxShadow: 2, 
           p: 2, 
-          backgroundColor: '#f3efeb',
+          backgroundColor: theme.palette.card.main,
           width: '100%',
           maxWidth: 1000,
-        }}
+        })}
       >
        
           <Box display="flex" alignItems="center" mb={2}>

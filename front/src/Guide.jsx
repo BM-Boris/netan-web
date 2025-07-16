@@ -5,7 +5,7 @@ const cardStyles = {
   borderRadius: 2,
   boxShadow: 2,
   p: 2,
-  backgroundColor: '#f3efeb',
+  backgroundColor: 'card.main',
 };
 
 const listItemStyles = {

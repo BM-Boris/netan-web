@@ -1,27 +1,40 @@
-// src/App.js
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
   Typography,
   Container,
   Box,
-  Button
+  Button,
+  IconButton,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 import GitHubIcon from '@mui/icons-material/GitHub';
 
 import NetworkBuilder from './NetworkBuilder';
 import Guide from './Guide';
+import { ColorModeContext } from './index';
 
+/*────────────  главная раскладка  ────────────*/
 function MainLayout() {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location   = useLocation();
+  const navigate   = useNavigate();
+  const theme      = useTheme();
+  const colorMode  = React.useContext(ColorModeContext);
 
   return (
     <>
       {/* Header */}
-      <AppBar position="static" sx={{ backgroundColor: '#B8A383' }}>
+      <AppBar position="static">
         <Toolbar
           sx={{
             position: 'relative',
@@ -29,35 +42,49 @@ function MainLayout() {
             alignItems: 'center',
             mt: 5,
             mb: 3,
-            px: 3
+            px: 3,
           }}
         >
-          {/* Title block */}
+          {/* переключатель темы */}
+          <IconButton
+            color="inherit"
+            onClick={colorMode.toggleColorMode}
+            sx={{
+              position: 'absolute',
+              top: { xs: -6, md: -10 },
+              left: { xs: 20, md: 46 },
+            }}
+          >
+            {theme.palette.mode === 'dark' ? (
+              <LightModeIcon sx={{ fontSize: { xs: 28, sm: 40, md: 55 } }} />
+            ) : (
+              <DarkModeIcon sx={{ fontSize: { xs: 28, sm: 40, md: 55 } }} />
+            )}
+          </IconButton>
+
+          {/* заголовок */}
           <Box sx={{ textAlign: 'center' }}>
             <Typography
-              component="div"
               sx={{
                 fontWeight: 500,
-                fontSize: { xs: 72, sm: 96, md: 126 },   // адаптивный заголовок
+                fontSize: { xs: 72, sm: 96, md: 126 },
                 color: '#fff',
-                lineHeight: 1
+                lineHeight: 1,
               }}
             >
               NeTan
             </Typography>
             <Typography
-              component="div"
               sx={{
                 fontWeight: 'bold',
                 fontSize: { xs: 16, md: 20 },
                 color: '#fff',
-                mt: 3
+                mt: 3,
               }}
             >
               Threads Converge, Shapes Emerge – Creating a Harmony of Connections
             </Typography>
 
-            {/* Guide / Back button */}
             <Box sx={{ mt: 2 }}>
               <Button
                 variant="outlined"
@@ -74,12 +101,12 @@ function MainLayout() {
             </Box>
           </Box>
 
-          {/* GitHub link */}
+          {/* GitHub */}
           <Box
             sx={{
               position: 'absolute',
               top: { xs: -6, md: -10 },
-              right: { xs: 20, md: 46 }
+              right: { xs: 20, md: 46 },
             }}
           >
             <a
@@ -89,17 +116,14 @@ function MainLayout() {
               style={{ textDecoration: 'none' }}
             >
               <GitHubIcon
-                sx={{
-                  fontSize: { xs: 28, sm: 40, md: 55 },  // xs-экраны заметно меньше
-                  color: '#fff'
-                }}
+                sx={{ fontSize: { xs: 28, sm: 40, md: 55 }, color: '#fff' }}
               />
             </a>
           </Box>
         </Toolbar>
       </AppBar>
 
-      {/* Main content */}
+      {/* Content */}
       <Container sx={{ mt: 1, mb: 5 }}>
         <Routes>
           <Route path="/" element={<NetworkBuilder />} />
@@ -112,8 +136,8 @@ function MainLayout() {
         component="footer"
         sx={{
           py: 2,
-          bgcolor: '#B8A383',
-          textAlign: 'center'
+          bgcolor: theme.palette.appBar,
+          textAlign: 'center',
         }}
       >
         <Button
@@ -132,6 +156,7 @@ function MainLayout() {
   );
 }
 
+/*────────────  Router wrapper  ────────────*/
 function App() {
   return (
     <Router>

@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import { useTheme } from '@mui/material/styles';
 
 /* ───────── helpers ───────── */
 const NUM_UNIQUE_THRESHOLD = 6;
@@ -290,72 +291,136 @@ const NetworkPlot = ({ nodes, edges }) => {
     uirevision:'network'
   });
 
-  const PlotBox = ({full}) => (
-    <Plot
-      data={data}
-      layout={makeLayout(full)}
-      style={full
-        ? {width:'100%',height:'calc(100vh - 200px)'}
-        : {width:'100%',height:'600px'}}
-      config={{responsive:true}}
-      onLegendClick={onLegendClick}
-      onLegendDoubleClick={onLegendDouble}
-      onRelayout={onRelayout}
-    />
-  );
+  /* ───────── Plotly‑блок ───────── */
+  const PlotBox = ({ full }) => {
+    const theme = useTheme();      // берём активную тему
+
+    const layout = React.useMemo(
+      () => ({
+        title: 'Network Plot',
+        hovermode: 'closest',
+        showlegend: true,
+        legend: {
+            ...legendCfg,
+            font: { color: theme.palette.text.primary },   // ← цвет текста легенды
+          },
+          font: { color: theme.palette.text.primary },     // ← базовый цвет всех надписей
+
+        margin: full
+          ? { l: 20, r: 20, t: 40, b: 20 }
+          : { l: 20, r: 60, t: legendTop ? 70 : 40, b: 20 },
+
+        /* — фон Plotly — */
+        paper_bgcolor: theme.palette.card.plot,        // фон «карточки» графика
+        plot_bgcolor:
+          theme.palette.mode === 'dark'
+            ? theme.palette.card.plot   // ночью совпадает с карточкой
+            : theme.palette.background.paper, // днём остаётся белым // внутренняя область
+
+        xaxis: {
+          visible: false,
+          ...(axisRef.current
+            ? { range: axisRef.current.x, autorange: false }
+            : {}),
+        },
+        yaxis: {
+          visible: false,
+          ...(axisRef.current
+            ? { range: axisRef.current.y, autorange: false }
+            : {}),
+        },
+        uirevision: 'network',
+      }),
+      [full, legendCfg, legendTop, theme]
+    );
+
+    return (
+      <Plot
+        data={data}
+        layout={layout}
+        style={
+          full
+            ? { width: '100%', height: 'calc(100vh - 200px)' }
+            : { width: '100%', height: '600px' }
+        }
+        config={{ responsive: true }}
+        onLegendClick={onLegendClick}
+        onLegendDoubleClick={onLegendDouble}
+        onRelayout={onRelayout}
+      />
+    );
+  };
 
   /* ───────── UI ───────── */
   return (
     <>
-      {/* NORMAL CARD */}
-      <Box sx={{display:'flex',flexDirection:'column',alignItems:'center',mt:4}}>
-        <Card sx={{borderRadius:2,boxShadow:2,p:2,backgroundColor:'#D7DFE3',
-                   width:'100%',maxWidth:1000}}>
-          <Box sx={{display:'flex',alignItems:'center',
-                    justifyContent:'space-between',mb:2.5}}>
-            <Typography variant="h5" sx={{fontWeight:'bold'}}>Network Plot</Typography>
+      {/* ─── обычная карточка ─── */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
+        <Card
+          sx={(theme) => ({
+            borderRadius: 2,
+            boxShadow: 2,
+            p: 2,
+            backgroundColor: theme.palette.card.plot,
+            width: '100%',
+            maxWidth: 1000,
+          })}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+              Network Plot
+            </Typography>
             <IconButton onClick={toggleFull} size="small">
-              <FullscreenIcon sx={{fontSize:30}}/>
+              <FullscreenIcon sx={{ fontSize: 30 }} />
             </IconButton>
           </Box>
 
           <Panel
             columns={cols}
-            colorBy={colorBy}   setColorBy={setColorBy}
-            shapeBy={shapeBy}   setShapeBy={setShapeBy}
+            colorBy={colorBy} setColorBy={setColorBy}
+            shapeBy={shapeBy} setShapeBy={setShapeBy}
             selLayer={selLayer} setSelLayer={setSelLayer} layerNames={layerNames}
-            hideIso={hideIso}   setHideIso={setHideIso}
+            hideIso={hideIso} setHideIso={setHideIso}
             minW={minW} maxW={maxW} stepW={stepW}
             range={range} setRange={setRange}
           />
 
-          <PlotBox full={false}/>
+          <PlotBox full={false} />
         </Card>
       </Box>
 
-      {/* FULLSCREEN DIALOG */}
-      <Dialog fullScreen open={full} onClose={toggleFull}
-              PaperProps={{sx:{backgroundColor:'#D7DFE3'}}}>
-        <Box sx={{display:'flex',alignItems:'center',
-                  justifyContent:'space-between',p:2,pt:3,mb:0.5}}>
-          <Typography variant="h4" sx={{fontWeight:'bold'}}>Network Plot</Typography>
+      {/* ─── полноэкранный диалог ─── */}
+      <Dialog
+        fullScreen
+        open={full}
+        onClose={toggleFull}
+        PaperProps={{
+          sx: (theme) => ({
+            backgroundColor: theme.palette.card.plot,
+          }),
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, pt: 3, mb: 0.5 }}>
+          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+            Network Plot
+          </Typography>
           <IconButton onClick={toggleFull}>
-            <FullscreenExitIcon sx={{fontSize:38}}/>
+            <FullscreenExitIcon sx={{ fontSize: 38 }} />
           </IconButton>
         </Box>
 
-        <Box sx={{px:2}}>
+        <Box sx={{ px: 2 }}>
           <Panel
             columns={cols}
-            colorBy={colorBy}   setColorBy={setColorBy}
-            shapeBy={shapeBy}   setShapeBy={setShapeBy}
+            colorBy={colorBy} setColorBy={setColorBy}
+            shapeBy={shapeBy} setShapeBy={setShapeBy}
             selLayer={selLayer} setSelLayer={setSelLayer} layerNames={layerNames}
-            hideIso={hideIso}   setHideIso={setHideIso}
+            hideIso={hideIso} setHideIso={setHideIso}
             minW={minW} maxW={maxW} stepW={stepW}
             range={range} setRange={setRange}
           />
 
-          <PlotBox full={true}/>
+          <PlotBox full={true} />
         </Box>
       </Dialog>
     </>

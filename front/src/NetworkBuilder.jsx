@@ -355,12 +355,12 @@ const NetworkBuilder = () => {
         <Box sx={{ mt: 4 }}>
           {buildStats && (
             <Card
-              sx={{
+              sx={(theme) => ({
                 p: 2,
-                backgroundColor: '#D7DFE3',
+                backgroundColor: theme.palette.card.plot,
                 maxWidth: 1000,
                 m: '0 auto'
-              }}
+              })}
             >
               <Typography
                 variant="h5"
