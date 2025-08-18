@@ -90,6 +90,7 @@ def _read_meta(f):
     f.seek(0)
     if df.empty:
         raise ValueError("Meta file is empty.")
+    df=df.fillna('none').replace("None", "none")
     return df, df.iloc[:, 0].tolist()
 
 
@@ -212,6 +213,8 @@ def _filter(r, f: Dict):
     meth = f["method"].lower()
     thr = float(f.get("Threshold", 1))
     meta = f.get("meta", "")
+    if meth != "none" and meta=="":
+        raise ValueError("Meta column is empty while filter selection is chosen.")
 
     mapping = {
         "ttest": ("p_value(tt)", False, "<", r.ttest),
@@ -470,7 +473,7 @@ def _glasso(
         edges_sub = int(np.count_nonzero(np.triu(np.abs(Psub) >= thr, k=1)))
         # маштабируем на полный размер (≈ пропорционально C(p,2))
         coeff     = (p * (p - 1)) / (p_sub * (p_sub - 1))
-        edges_pred = int(round(edges_sub * coeff))/15
+        edges_pred = int(round(edges_sub * coeff))/100
         print(edges_pred)
 
         return t_pred, edges_pred
