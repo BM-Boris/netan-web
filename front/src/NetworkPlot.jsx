@@ -195,9 +195,15 @@ const darkPalette = [
   useEffect(() => setHidden(new Set()), [colorBy, shapeBy]);
 
   /* weight slider bounds */
-  const wArr  = useMemo(() => edges.map(e => e.weight), [edges]);
-  const minW  = useMemo(() => wArr.length ? +Math.min(...wArr).toFixed(3) : 0, [wArr]);
-  const maxW  = useMemo(() => wArr.length ? +Math.max(...wArr).toFixed(3) : 1, [wArr]);
+  const wArr  = useMemo(() => edges.map(e => Number(e.weight) || 0), [edges]);
+  const minW  = useMemo(
+    () => (wArr.length ? Math.floor(Math.min(...wArr) * 1000) / 1000 : 0),
+    [wArr]
+  );
+  const maxW  = useMemo(
+    () => (wArr.length ? Math.ceil (Math.max(...wArr) * 1000) / 1000 : 1),
+    [wArr]
+  );  
   const stepW = useMemo(() => +((maxW - minW) / 19).toFixed(3) || 0.001, [minW, maxW]);
   const [range, setRange] = useState([minW, maxW]);
   useEffect(() => setRange([minW, maxW]), [minW, maxW]);
