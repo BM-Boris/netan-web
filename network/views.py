@@ -957,13 +957,21 @@ def _network_worker(task_id: str,
              **{k: v for k, v in d.items() if k not in ("x", "y")}}
             for n, d in G.nodes(data=True)
         ]
-        edges_json = [
-            {"source": u, "target": v,
-             "weight": float(G[u][v].get("weight", 1)),
-             "layer":  G[u][v]["layer"],
-             "layers": sorted(G[u][v]["layers"])}
-            for u, v in G.edges()
-        ]
+        is_features = (nmode == "features")
+        edges_json = []
+        for u, v in G.edges():
+            e = {
+                "source": u,
+                "target": v,
+                "weight": float(G[u][v].get("weight", 1)),
+                "layer":  G[u][v]["layer"],
+                "layers": sorted(G[u][v]["layers"]),
+            }
+            if is_features:
+                e["source_compound"] = G.nodes[u].get("compound", "") or ""
+                e["target_compound"] = G.nodes[v].get("compound", "") or ""
+            edges_json.append(e)
+
         if not edges_json:
             raise ValueError("No edges (edgeThreshold too high?).")
 

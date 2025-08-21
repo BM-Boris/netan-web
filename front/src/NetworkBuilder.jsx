@@ -226,23 +226,37 @@ const NetworkBuilder = () => {
   // ───────── Download CSV (edges) ──────────────────────────────────────────
   const handleDownloadNetwork = () => {
     if (!edges.length) return;
-
-    // header
-    const lines = ['source,target,weight,layer,layers'];
-    // rows
+  
+    // добавляем compound-колонки только если они есть (features-mode)
+    const hasComp = edges.some(e => ('source_compound' in e) || ('target_compound' in e));
+  
+    const header = ['source', 'target', 'weight', 'layer', 'layers']
+      .concat(hasComp ? ['source_compound', 'target_compound'] : []);
+    const lines = [header.join(',')];
+  
     edges.forEach(e => {
       const src   = e.source;
       const tgt   = e.target;
       const w     = e.weight ?? 1;
       const layer = e.layer ?? '';
       const lays  = Array.isArray(e.layers) ? e.layers.join('|') : '';
-      lines.push([src, tgt, w, layer, lays].join(','));
+  
+      const row = [src, tgt, w, layer, lays];
+      if (hasComp) row.push(e.source_compound ?? '', e.target_compound ?? '');
+  
+      // простое CSV-экранирование
+      const csvRow = row.map(v => {
+        const s = String(v ?? '');
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      }).join(',');
+  
+      lines.push(csvRow);
     });
-
+  
     const csv = lines.join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
-
+  
     const a = document.createElement('a');
     a.href = url;
     a.download = 'network_netan.csv';
@@ -250,6 +264,7 @@ const NetworkBuilder = () => {
     a.click();
     a.remove();
   };
+  
 
   const handleDownloadData = () => {
     if (!dataTable.length) return;
