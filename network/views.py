@@ -261,7 +261,7 @@ def _df(x):
 # ──────────────────────────────────────────────────────────────────────────────
 # 2  Builders with progress callbacks
 # ──────────────────────────────────────────────────────────────────────────────
-def _corr(df, thr, weight_flag):  # ≈ мгновенно → прогресс не нужен
+def _corr(df, thr, weight_flag, _guard=True):  # ≈ мгновенно → прогресс не нужен
     cor = df.corr("spearman")
     adj = (cor.abs() >= thr).astype(int)
     np.fill_diagonal(adj.values, 0)
@@ -278,7 +278,7 @@ def _corr(df, thr, weight_flag):  # ≈ мгновенно → прогресс 
 def _clr(
     df, thr, weight_flag,
     *, progress=None, offset=0, span=60, cancel_cb=None,
-    chunk=8, n_neighbors=2,
+    chunk=8, n_neighbors=2, _guard=True,
 ):
     X   = df.values.astype("float32", copy=False)
     ids = df.columns.to_list()
@@ -307,7 +307,7 @@ def _clr(
         # — примерно оцениваем новые рёбра: только связи со старыми колонками
         for j in cols:
             edge_count += np.sum(MI[:j, j] >= thr)
-            if edge_count > MAX_EDGES:
+            if _guard and edge_count > MAX_EDGES:
                 raise RuntimeError(f"Network too dense (limit ≈ {MAX_EDGES}). Increase edgeThreshold.")
 
         if progress:
@@ -327,7 +327,7 @@ def _clr(
     # threshold → adjacency
     adj = (S >= thr).astype(np.uint8)
     np.fill_diagonal(adj, 0)
-    if adj.sum() // 2 > MAX_EDGES:
+    if _guard and adj.sum() // 2 > MAX_EDGES:
         raise RuntimeError("too many edges")
 
     G = nx.from_pandas_adjacency(
@@ -351,7 +351,7 @@ def _clr(
 def _rf(
     df, thr, weight_flag,
     *, progress=None, offset=0, span=60, cancel_cb=None,
-    chunk=4, n_estimators=80, max_depth=None,):
+    chunk=4, n_estimators=80, max_depth=None, _guard=True,):
         
     X   = df.values.astype("float32", copy=False)
     ids = df.columns.to_list()
@@ -386,7 +386,7 @@ def _rf(
         for t, row in rows:
             W[t] = row
             edge_count += np.sum(row[:t] >= thr)
-            if edge_count > MAX_EDGES:
+            if _guard and edge_count > MAX_EDGES:
                 raise RuntimeError(f"Network too dense (limit ≈ {MAX_EDGES}). Increase edgeThreshold.")
 
         if progress:
@@ -399,7 +399,7 @@ def _rf(
 
     adj = (W >= thr).astype(np.uint8)
     np.fill_diagonal(adj, 0)
-    if adj.sum() // 2 > MAX_EDGES:
+    if _guard and adj.sum() // 2 > MAX_EDGES:
         raise RuntimeError("too many edges")
 
     G = nx.from_pandas_adjacency(
@@ -431,7 +431,8 @@ def _glasso(
     max_iter: int = 200,
     tol: float   = 1e-4,
     ridge_factor: float = 10.0,   # при не‑SPD усиливаем штраф × этот множитель
-    max_ridge_tries: int = 8,     # макс. число таких «усиливаний»
+    max_ridge_tries: int = 8, 
+    _guard: bool = True ,# макс. число таких «усиливаний»
 ):
     """
     Graphical Lasso с динамическим прогресс‑баром, авто‑откатом
@@ -479,7 +480,7 @@ def _glasso(
         return t_pred, edges_pred
 
     t_pred, edges_pred = _estimate_runtime_and_edges()
-    if edges_pred > MAX_EDGES:
+    if _guard and edges_pred > MAX_EDGES:
         raise RuntimeError(
             f"Network too dense (limit ≈ {MAX_EDGES}). Increase edgeThreshold."
         )
@@ -544,7 +545,7 @@ def _glasso(
     adj = np.abs(P) >= thr
     np.fill_diagonal(adj, 0)
     edge_cnt = int(np.count_nonzero(np.triu(adj, k=1)))
-    if edge_cnt > MAX_EDGES:
+    if _guard and edge_cnt > MAX_EDGES:
         raise RuntimeError(
             f"Network too dense (limit ≈ {MAX_EDGES}). Increase edgeThreshold."
         )
@@ -589,7 +590,7 @@ def _add_cross(Gm, A: pd.DataFrame, B: pd.DataFrame, method, thr):
 
     ia, ib = A.index.to_list(), B.index.to_list()
     expr = pd.concat([A.loc[ia, shared], B.loc[ib, shared]], axis=0)
-    S = BUILD[method](expr.T[ia + ib], 0, "off")[1]
+    S = BUILD[method](expr.T[ia + ib], 0, "off", _guard=False)[1]
     block = S[: len(ia), len(ia) :]
 
     for i, u in enumerate(ia):
