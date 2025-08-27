@@ -22,7 +22,7 @@ import DataUploadWithType from './DataUploadWithType';
 import ParametersForm from './ParametersForm';
 import NetworkPlot from './NetworkPlot';
 
-const API = 'https://netan-api.com/api/build-network/';
+const API = 'https://api.netan.io/api/build-network/';
 
 const NetworkBuilder = () => {
   // ───────── Local state ───────────────────────────────────────────────────
