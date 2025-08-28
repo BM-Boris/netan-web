@@ -923,22 +923,26 @@ def _network_worker(task_id: str,
         }
 
         if lmode == "multilayer":
-            l_nodes, l_edges = defaultdict(set), defaultdict(int)
+            # Collect edges for each real layer (exclude 'Entire')
+            layer_edges = defaultdict(list)
             for u, v, d in G.edges(data=True):
-                for lay in d["layers"]:
+                lays = d.get("layers") or {d.get("layer", "Entire")}
+                for lay in lays:
                     if lay == "Entire":
                         continue
-                    l_nodes[lay].update([u, v])
-                    l_edges[lay] += 1
-
-            for lay in sorted(l_edges):
+                    layer_edges[lay].append((u, v))
+        
+            # Compute stats on edge-induced subgraphs (correct per-layer density)
+            for lay in sorted(layer_edges):
                 safe = lay.replace(" ", "_").replace(".", "_").replace(",", "_")
-                sub  = G.subgraph(l_nodes[lay])
-                nstats[f"nodes_{safe}"]   = len(l_nodes[lay])
-                nstats[f"edges_{safe}"]   = l_edges[lay]
-                nstats[f"density_{safe}"] = (
-                    round(nx.density(sub), 4) if len(l_nodes[lay]) > 1 else 0
-                )
+                Gl = G.edge_subgraph(layer_edges[lay]).copy()
+                n_nodes = Gl.number_of_nodes()
+                n_edges = Gl.number_of_edges()
+                dens = round(nx.density(Gl), 4) if n_nodes > 1 else 0.0
+        
+                nstats[f"nodes_{safe}"]   = n_nodes
+                nstats[f"edges_{safe}"]   = n_edges
+                nstats[f"density_{safe}"] = dens
 
             # consensus layer
             c_edges = [(u, v) for u, v in G.edges()
