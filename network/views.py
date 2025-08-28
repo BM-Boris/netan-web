@@ -722,6 +722,8 @@ def _network_worker(task_id: str,
         combined = pd.concat([r.X for r in rodins], axis=0)
 
         def _build(df, offset):
+            df = df.apply(pd.to_numeric, errors="coerce").replace([np.inf, -np.inf], np.nan)
+            df = df.astype("float64" if mth == "spearman" else "float32", copy=False)
             if mth == "clr":
                 # берем n_neighbors из UI
                 n_n = int(net_p.get("n_neighbors", 2))
