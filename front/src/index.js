@@ -179,6 +179,8 @@ function ThemeWrapper() {
     </ColorModeContext.Provider>
   );
 }
+const prevOnError = window.onerror;
+
 
 /*─────────────────────────────────────────────
   4. Bootstrap

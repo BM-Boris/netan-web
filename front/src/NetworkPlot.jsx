@@ -1,6 +1,5 @@
-/* NetworkPlot.jsx – single‑layer selector + uid sanitising
-   =================================================================
-   • Починка MUI‑warning «out-of-range value» + fallback MenuItem ''
+/* NetworkPlot.jsx – single-layer selector + node click interactions
+  
 =================================================================== */
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
@@ -15,17 +14,18 @@ import { useTheme } from '@mui/material/styles';
 
 /* ───────── helpers ───────── */
 const NUM_UNIQUE_THRESHOLD = 6;
-const isNum   = v => v !== null && v !== '' && !Number.isNaN(+v);
+const isNum = v => v !== null && v !== '' && !Number.isNaN(+v);
 const colType = (col, data) => {
   if (!col) return 'none';
   const vals = data.map(d => d[col]).filter(v => v !== undefined && v !== null);
   if (!vals.length) return 'none';
   return vals.every(isNum) && new Set(vals.map(Number)).size >= NUM_UNIQUE_THRESHOLD
-    ? 'continuous' : 'categorical';
+    ? 'continuous'
+    : 'categorical';
 };
 
-const symbols  = ['circle','square','diamond','triangle-up','triangle-down','cross','x','star'];
-const safeId   = s => String(s).replace(/[^A-Za-z0-9_-]/g, '_');
+const symbols = ['circle','square','diamond','triangle-up','triangle-down','cross','x','star'];
+const safeId  = s => String(s).replace(/[^A-Za-z0-9_-]/g, '_');
 
 /* ───────── control panel ───────── */
 const Panel = ({
@@ -39,22 +39,32 @@ const Panel = ({
     {/* Color */}
     <FormControl size="small">
       <InputLabel>Color by</InputLabel>
-      <Select value={columns.includes(colorBy) ? colorBy : ''}
-              onChange={e => setColorBy(e.target.value)}
-              label="Color by" sx={{ width: { xs: 105, sm: 150 } }}>
+      <Select
+        value={columns.includes(colorBy) ? colorBy : ''}
+        onChange={e => setColorBy(e.target.value)}
+        label="Color by"
+        sx={{ width: { xs: 105, sm: 150 } }}
+      >
         <MenuItem value="">(None)</MenuItem>
-        {columns.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+        {columns.map(c => (
+          <MenuItem key={c} value={c}>{c}</MenuItem>
+        ))}
       </Select>
     </FormControl>
 
     {/* Shape */}
     <FormControl size="small">
       <InputLabel>Shape by</InputLabel>
-      <Select value={columns.includes(shapeBy) ? shapeBy : ''}
-              onChange={e => setShapeBy(e.target.value)}
-              label="Shape by" sx={{ width: { xs: 110, sm: 150 } }}>
+      <Select
+        value={columns.includes(shapeBy) ? shapeBy : ''}
+        onChange={e => setShapeBy(e.target.value)}
+        label="Shape by"
+        sx={{ width: { xs: 110, sm: 150 } }}
+      >
         <MenuItem value="">(None)</MenuItem>
-        {columns.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+        {columns.map(c => (
+          <MenuItem key={c} value={c}>{c}</MenuItem>
+        ))}
       </Select>
     </FormControl>
 
@@ -62,8 +72,6 @@ const Panel = ({
     <FormControl size="small" disabled={layerNames.length === 0}>
       <InputLabel>Layer</InputLabel>
       <Select
-        /* гарантируем, что value существует в списке;
-          если нет — берём первый доступный слой */
         value={layerNames.includes(selLayer) ? selLayer : (layerNames[0] || '')}
         onChange={e => setSelLayer(e.target.value)}
         label="Layer"
@@ -76,17 +84,32 @@ const Panel = ({
     </FormControl>
 
     {/* Hide isolated */}
-    <FormControlLabel 
-      control={<Switch checked={hideIso} onChange={e => setHideIso(e.target.checked)}
-                       color="secondary" sx={{ mb: 0.4}} />}
+    <FormControlLabel
+      control={
+        <Switch
+          checked={hideIso}
+          onChange={e => setHideIso(e.target.checked)}
+          color="secondary"
+          sx={{ mb: 0.4 }}
+        />
+      }
       label="Hide isolated"
     />
 
     {/* Weight slider */}
     <Box sx={{ width: { xs: 190, sm: 220 }, px: 1 }}>
       <Typography variant="body2" sx={{ mb: 0.3 }}>Edge weight range</Typography>
-      <Slider value={range} onChange={(_, v) => setRange(v)} valueLabelDisplay="auto"
-              min={minW} max={maxW} step={stepW} marks color="secondary" sx={{ mt: -0.8 }} />
+      <Slider
+        value={range}
+        onChange={(_, v) => setRange(v)}
+        valueLabelDisplay="auto"
+        min={minW}
+        max={maxW}
+        step={stepW}
+        marks
+        color="secondary"
+        sx={{ mt: -0.8 }}
+      />
       <Box display="flex" justifyContent="space-between" sx={{ mt: -1 }}>
         <Typography variant="caption">{minW.toFixed(3)}</Typography>
         <Typography variant="caption">{maxW.toFixed(3)}</Typography>
@@ -97,87 +120,53 @@ const Panel = ({
 
 /* ───────── main component ───────── */
 const NetworkPlot = ({ nodes, edges }) => {
-
   const theme = useTheme();
+  const mode = theme.palette.mode;
 
   /*─────────────────────────────────────────────
-  Палитры для узлов, индекс‑к‑индексу совпадают
-  (№0 всегда «тёплый красный», №1 — холодный синий …)
-─────────────────────────────────────────────*/
-const lightPalette = [
-  '#c0392b', // 0 red
-  '#2980b9', // 1 blue
-  '#27ae60', // 2 green
-  '#e67e22', // 3 orange
-  '#8e44ad', // 4 purple
-  '#8d6e63', // 5 brown
-  '#d81b60', // 6 pink
-  '#7f8c8d', // 7 gray
-  '#00897b', // 8 teal
-  '#f4c20d', // 9 gold
-  '#00acc1', // 10 cyan
-  '#ad1457', // 11 magenta
-  '#afc52f', // 12 lime
-  '#556b2f', // 13 olive
-  '#6d214f', // 14 maroon
-  '#303f9f', // 15 navy
-  '#bdc3c7', // 16 silver
-  '#9b59b6', // 17 violet
-  '#3f51b5', // 18 indigo
-  '#ff7043', // 19 coral
-  '#c0b283', // 20 khaki
-  '#40e0d0', // 21 turquoise
-];
+    Цветовые палитры для нод
+  ─────────────────────────────────────────────*/
+  const lightPalette = [
+    '#c0392b', '#2980b9', '#27ae60', '#e67e22', '#8e44ad', '#8d6e63',
+    '#d81b60', '#7f8c8d', '#00897b', '#f4c20d', '#00acc1', '#ad1457',
+    '#afc52f', '#556b2f', '#6d214f', '#303f9f', '#bdc3c7', '#9b59b6',
+    '#3f51b5', '#ff7043', '#c0b283', '#40e0d0',
+  ];
 
-const darkPalette = [
-  '#ff4d6d', // 0 neon‑rose          ← тёплый красный
-  '#2ecfff', // 1 electric‑cyan      ← холодный синий
-  '#13ffae', // 2 mint‑green         ← яркий зелёный
-  '#ff9e2c', // 3 neon‑orange        ← тёплый оранж
-  '#c792ff', // 4 lavender‑glow      ← фиолетовый
-  '#b87333', // 5 copper             ← тёплый «brown» акцент
-  '#ff6ec7', // 6 neon‑pink          ← розовый
-  '#b0bec5', // 7 steel‑gray         ← нейтральный
-  '#1cf0c8', // 8 teal‑glow          ← циано‑зелёный
-  '#ffd95c', // 9 light‑amber        ← жёлтый / gold
-  '#46cfff', // 10 neon‑sky          ← холодный cyan
-  '#ff4fff', // 11 hot‑magenta       ← магента
-  '#7dff3b', // 12 lime‑flash        ← лайм
-  '#9ccc65', // 13 soft‑olive        ← оливковый
-  '#ff5e99', // 14 pink‑flash        ← maroon‑family, но ярче
-  '#5c6cff', // 15 cobalt‑navy       ← «navy», но насыщенный
-  '#9ea7ff', // 16 pale‑indigo‑silver
-  '#b388ff', // 17 pastel‑violet     ← мягкий фиолет
-  '#7ea2ff', // 18 indigo‑glow       ← яркий индиго
-  '#ff8a65', // 19 coral‑pop
-  '#e7d691', // 20 khaki‑light
-  '#63ffda', // 21 emerald‑aqua
-];
+  const darkPalette = [
+    '#ff4d6d', '#2ecfff', '#13ffae', '#ff9e2c', '#c792ff', '#b87333',
+    '#ff6ec7', '#b0bec5', '#1cf0c8', '#ffd95c', '#46cfff', '#ff4fff',
+    '#7dff3b', '#9ccc65', '#ff5e99', '#5c6cff', '#9ea7ff', '#b388ff',
+    '#7ea2ff', '#ff8a65', '#e7d691', '#63ffda',
+  ];
 
-
-  // финальный массив
   const palette = theme.palette.mode === 'dark' ? darkPalette : lightPalette;
-
-
-
 
   /* dynamic column list */
   const cols = Object.keys(nodes[0] || {}).filter(
-    k => !['id','x','y','compound','display_id'].includes(k)
+    k => !['id', 'x', 'y', 'compound', 'display_id'].includes(k)
   );
 
-  /* state */
+  /* state: color/shape/layer/weights */
   const [colorBy, setColorBy] = useState('');
   const [shapeBy, setShapeBy] = useState('');
   const [hideIso, setHideIso] = useState(false);
   const [full, setFull] = useState(false);
   const toggleFull = () => setFull(v => !v);
 
+  /* pinned labels + highlight centers (как в Python) */
+  const [pinnedIds, setPinnedIds] = useState([]);           // ['node1', 'node2', ...]
+  const [highlightCenters, setHighlightCenters] = useState([]); // те же id
+
+  /* zoom / reset tracking */
+  const axisRef = useRef(null);      // для памяти зума
+  const zoomRef = useRef(false);     // был ли зум/пан
+
   /* reset color/shape when columns change */
   useEffect(() => {
     if (!cols.includes(colorBy)) setColorBy('');
     if (!cols.includes(shapeBy)) setShapeBy('');
-  }, [cols]);                                                // eslint-disable-line
+  }, [cols]); // eslint-disable-line
 
   /* layer names */
   const layerNames = useMemo(
@@ -186,7 +175,6 @@ const darkPalette = [
   );
   const [selLayer, setSelLayer] = useState('');
   useEffect(() => {
-    // pick first layer automatically or reset to ''
     setSelLayer(p => (layerNames.includes(p) ? p : (layerNames[0] || '')));
   }, [layerNames]);
 
@@ -195,45 +183,72 @@ const darkPalette = [
   useEffect(() => setHidden(new Set()), [colorBy, shapeBy]);
 
   /* weight slider bounds */
-  const wArr  = useMemo(() => edges.map(e => Number(e.weight) || 0), [edges]);
-  const minW  = useMemo(
+  const wArr = useMemo(() => edges.map(e => Number(e.weight) || 0), [edges]);
+  const minW = useMemo(
     () => (wArr.length ? Math.floor(Math.min(...wArr) * 1000) / 1000 : 0),
     [wArr]
   );
-  const maxW  = useMemo(
-    () => (wArr.length ? Math.ceil (Math.max(...wArr) * 1000) / 1000 : 1),
+  const maxW = useMemo(
+    () => (wArr.length ? Math.ceil(Math.max(...wArr) * 1000) / 1000 : 1),
     [wArr]
-  );  
-  const stepW = useMemo(() => +((maxW - minW) / 19).toFixed(3) || 0.001, [minW, maxW]);
+  );
+  const stepW = useMemo(
+    () => +((maxW - minW) / 19).toFixed(3) || 0.001,
+    [minW, maxW]
+  );
   const [range, setRange] = useState([minW, maxW]);
   useEffect(() => setRange([minW, maxW]), [minW, maxW]);
 
-  /* zoom memory */
-  const axisRef = useRef(null);
-
   /* grouping key */
-  const gKey = useCallback(n => {
-    const c = colorBy ? n[colorBy] : 'all';
-    const s = shapeBy ? n[shapeBy] : 'all';
-    if (colorBy && shapeBy) return `${c}||${s}`;
-    if (colorBy)            return `${c}`;
-    if (shapeBy)            return `${s}`;
-    return 'Nodes';
-  }, [colorBy, shapeBy]);
+  const gKey = useCallback(
+    n => {
+      const c = colorBy ? n[colorBy] : 'all';
+      const s = shapeBy ? n[shapeBy] : 'all';
+      if (colorBy && shapeBy) return `${c}||${s}`;
+      if (colorBy) return `${c}`;
+      if (shapeBy) return `${s}`;
+      return 'Nodes';
+    },
+    [colorBy, shapeBy]
+  );
 
   /* maps */
   const maps = useMemo(() => {
     const keys  = [...new Set(nodes.map(gKey))].sort();
-    const cVals = [...new Set(nodes.map(n => colorBy ? n[colorBy] : 'all'))].sort();
-    const sVals = [...new Set(nodes.map(n => shapeBy ? n[shapeBy] : 'all'))].sort();
-    const cMap  = {}, sMap = {};
-    cVals.forEach((v,i) => { cMap[v] = palette[i % palette.length]; });
-    sVals.forEach((v,i) => { sMap[v] = symbols[i % symbols.length]; });
+    const cVals = [...new Set(nodes.map(n => (colorBy ? n[colorBy] : 'all')))].sort();
+    const sVals = [...new Set(nodes.map(n => (shapeBy ? n[shapeBy] : 'all')))].sort();
+    const cMap  = {};
+    const sMap  = {};
+    cVals.forEach((v, i) => {
+      cMap[v] = palette[i % palette.length];
+    });
+    sVals.forEach((v, i) => {
+      sMap[v] = symbols[i % symbols.length];
+    });
     return { keys, cMap, sMap, cType: colType(colorBy, nodes) };
   }, [nodes, colorBy, shapeBy, gKey, theme.palette.mode]);
 
-  /* traces */
-  const data = useMemo(() => {
+  /* ───────── основная сборка data + annotations ───────── */
+  const { data, annotations } = useMemo(() => {
+    const isDark = mode === 'dark';
+
+    // базовые цвета для рёбер/хайлайта в зависимости от темы
+    const baseEdgeColor = isDark
+      ? '#9c9ea7'  
+      : '#717171';       
+  
+    const highlightEdgeColor = isDark
+      ? '#dfdfe2'   
+      : '#2A3439';       
+  
+    const highlightNodeRingColor = isDark
+      ? '#dfdfe2'  
+      : '#2A3439';
+  
+    const nodeBorderColor = isDark
+      ? 'rgba(0,0,0,0.7)'          
+      : '#333';
+  
     /* filter edges by layer + weight */
     const eFilt = edges.filter(e => {
       const list = e.layers || [e.layer];
@@ -243,148 +258,377 @@ const darkPalette = [
 
     /* nodes/edges visibility */
     let vNodes = nodes.filter(n => !hidden.has(gKey(n)));
-    const idSet = new Set(vNodes.map(n => n.id));
-    let vEdges = eFilt.filter(({source,target}) => idSet.has(source)&&idSet.has(target));
+    const idSet = new Set(vNodes.map(n => String(n.id)));
+    let vEdges = eFilt.filter(({ source, target }) => idSet.has(String(source)) && idSet.has(String(target)));
+
     if (hideIso) {
       const conn = new Set();
-      vEdges.forEach(e => { conn.add(e.source); conn.add(e.target); });
-      vNodes = vNodes.filter(n => conn.has(n.id));
-      const id2 = new Set(vNodes.map(n => n.id));
-      vEdges = vEdges.filter(({source,target}) => id2.has(source)&&id2.has(target));
+      vEdges.forEach(e => {
+        conn.add(String(e.source));
+        conn.add(String(e.target));
+      });
+      vNodes = vNodes.filter(n => conn.has(String(n.id)));
+      const id2 = new Set(vNodes.map(n => String(n.id)));
+      vEdges = vEdges.filter(({ source, target }) => id2.has(String(source)) && id2.has(String(target)));
     }
 
-    /* edges trace */
-    const pos = Object.fromEntries(vNodes.map(n => [n.id, {x:n.x, y:n.y}]));
-    const ex=[], ey=[];
-    vEdges.forEach(({source,target})=>{
-      const s=pos[source], t=pos[target]; if(!s||!t) return;
-      ex.push(s.x,t.x,null); ey.push(s.y,t.y,null);
-    });
-    const traces=[{
-      uid:'edges', x:ex, y:ey, mode:'lines', hoverinfo:'none',
-      showlegend:false, line:{color:'#888',width:1}
-    }];
+    const pos = Object.fromEntries(
+      vNodes.map(n => [String(n.id), { x: n.x, y: n.y }])
+    );
+    const visibleIds = new Set(vNodes.map(n => String(n.id)));
 
-    /* nodes */
-    if (maps.cType==='continuous') {
-      const byShape={};
-      vNodes.forEach(n=>{
-        const sv=shapeBy ? n[shapeBy] : 'all';
-        if(!byShape[sv]) byShape[sv]={x:[],y:[],c:[],t:[]};
-        byShape[sv].x.push(n.x); byShape[sv].y.push(n.y);
-        byShape[sv].c.push(+n[colorBy]);
-        byShape[sv].t.push(`ID: ${n.display_id}<br>${colorBy}: ${n[colorBy]}`);
-      });
-      Object.entries(byShape).forEach(([sv,g],i)=>{
-        const safe=safeId(sv);
-        traces.push({
-          uid:`nodes_${safe}`, x:g.x, y:g.y, mode:'markers',
-          hoverinfo:'text', text:g.t, showlegend:false,
-          marker:{
-            color:g.c, colorscale:'Viridis', showscale:i===0,
-            colorbar:i===0?{title:colorBy}:undefined,
-            symbol:shapeBy ? maps.sMap[sv] : 'circle',
-            size:10, line:{width:1,color:'#333'}
+    /* base edges */
+    const ex = [];
+    const ey = [];
+    vEdges.forEach(({ source, target }) => {
+      const s = pos[String(source)];
+      const t = pos[String(target)];
+      if (!s || !t) return;
+      ex.push(s.x, t.x, null);
+      ey.push(s.y, t.y, null);
+    });
+
+    /* highlight edges + nodes (по centers) */
+    const centerSet = new Set(
+      highlightCenters.map(String).filter(id => visibleIds.has(id))
+    );
+    const hEx = [];
+    const hEy = [];
+    const neigh = new Set(centerSet);
+
+    if (centerSet.size > 0) {
+      vEdges.forEach(({ source, target }) => {
+        const sId = String(source);
+        const tId = String(target);
+        if (!visibleIds.has(sId) || !visibleIds.has(tId)) return;
+
+        if (centerSet.has(sId) || centerSet.has(tId)) {
+          neigh.add(sId);
+          neigh.add(tId);
+          const ps = pos[sId];
+          const pt = pos[tId];
+          if (ps && pt) {
+            hEx.push(ps.x, pt.x, null);
+            hEy.push(ps.y, pt.y, null);
           }
-        });
-      });
-      return traces;
-    }
-
-    /* categorical */
-    const groups={};
-    vNodes.forEach(n=>{
-      const k=gKey(n);
-      if(!groups[k]) groups[k]={x:[],y:[],t:[],cVal:colorBy?n[colorBy]:'all',
-                                sVal:shapeBy?n[shapeBy]:'all'};
-      groups[k].x.push(n.x); groups[k].y.push(n.y);
-      let t=`ID: ${n.display_id}` +
-        (n.compound ? `<br>Compound: ${n.compound}` : '');
-      if(colorBy) t+=`<br>${colorBy}: ${groups[k].cVal}`;
-      if(shapeBy) t+=`<br>${shapeBy}: ${groups[k].sVal}`;
-      groups[k].t.push(t);
-    });
-    maps.keys.forEach(k=>{
-      const g=groups[k]||{x:[null],y:[null],t:[],cVal:null,sVal:null};
-      const safe=safeId(k);
-      traces.push({
-        uid:`nodes_${safe}`, x:g.x, y:g.y, mode:'markers',
-        name:k, legendgroup:k,
-        hoverinfo:'text', text:g.t,
-        visible:hidden.has(k)?'legendonly':true,
-        marker:{
-          color:g.cVal!=null?maps.cMap[g.cVal]:'#000',
-          symbol:g.sVal!=null?maps.sMap[g.sVal]:'circle',
-          size:10, line:{width:1,color:'#333'}
         }
       });
+    }
+
+    const hNx = [];
+    const hNy = [];
+    if (neigh.size > 0) {
+      neigh.forEach(id => {
+        if (!visibleIds.has(id)) return;
+        const p = pos[id];
+        if (p) {
+          hNx.push(p.x);
+          hNy.push(p.y);
+        }
+      });
+    }
+
+    const traces = [];
+
+    // базовые ребра
+    traces.push({
+      uid: 'edges',
+      x: ex,
+      y: ey,
+      mode: 'lines',
+      hoverinfo: 'none',
+      showlegend: false,
+      line: { color: baseEdgeColor, width: 1.2 },
+      name: 'edges',
     });
-    return traces;
-  }, [nodes, edges, selLayer, range, hidden, hideIso, colorBy, shapeBy, maps, gKey]);
+
+    // хайлайтнутые ребра
+    traces.push({
+      uid: 'edges_highlight',
+      x: hEx,
+      y: hEy,
+      mode: 'lines',
+      hoverinfo: 'none',
+      showlegend: false,
+      line: { color: highlightEdgeColor, width: 2.2 },
+      name: 'highlight_edges',
+    });
+
+    /* узлы */
+    if (maps.cType === 'continuous' && colorBy) {
+      const byShape = {};
+      vNodes.forEach(n => {
+        const sv = shapeBy ? n[shapeBy] : 'all';
+        if (!byShape[sv]) {
+          byShape[sv] = { x: [], y: [], c: [], t: [], ids: [] };
+        }
+        byShape[sv].x.push(n.x);
+        byShape[sv].y.push(n.y);
+        byShape[sv].c.push(+n[colorBy]);
+        byShape[sv].t.push(`ID: ${n.display_id}<br>${colorBy}: ${n[colorBy]}`);
+        byShape[sv].ids.push(String(n.id));
+      });
+
+      Object.entries(byShape).forEach(([sv, g], i) => {
+        const safe = safeId(sv);
+        traces.push({
+          uid: `nodes_${safe}`,
+          x: g.x,
+          y: g.y,
+          mode: 'markers',
+          hoverinfo: 'text',
+          text: g.t,
+          showlegend: false,
+          customdata: g.ids,
+          marker: {
+            color: g.c,
+            colorscale: 'Viridis',
+            showscale: i === 0,
+            colorbar: i === 0 ? { title: colorBy } : undefined,
+            symbol: shapeBy ? maps.sMap[sv] : 'circle',
+            size: 10,
+            line: { width: 1, color: nodeBorderColor },
+          },
+        });
+      });
+    } else {
+      const groups = {};
+      vNodes.forEach(n => {
+        const k = gKey(n);
+        if (!groups[k]) {
+          groups[k] = {
+            x: [],
+            y: [],
+            t: [],
+            cVal: colorBy ? n[colorBy] : 'all',
+            sVal: shapeBy ? n[shapeBy] : 'all',
+            ids: [],
+          };
+        }
+        groups[k].x.push(n.x);
+        groups[k].y.push(n.y);
+        let t = `ID: ${n.display_id}`;
+        if (n.compound) t += `<br>Compound: ${n.compound}`;
+        if (colorBy) t += `<br>${colorBy}: ${groups[k].cVal}`;
+        if (shapeBy) t += `<br>${shapeBy}: ${groups[k].sVal}`;
+        groups[k].t.push(t);
+        groups[k].ids.push(String(n.id));
+      });
+
+      maps.keys.forEach(k => {
+        const g = groups[k] || {
+          x: [null],
+          y: [null],
+          t: [],
+          cVal: null,
+          sVal: null,
+          ids: [],
+        };
+        const safe = safeId(k);
+        traces.push({
+          uid: `nodes_${safe}`,
+          x: g.x,
+          y: g.y,
+          mode: 'markers',
+          name: k,
+          legendgroup: k,
+          hoverinfo: 'text',
+          text: g.t,
+          visible: hidden.has(k) ? 'legendonly' : true,
+          customdata: g.ids,
+          marker: {
+            color: g.cVal != null ? maps.cMap[g.cVal] : '#000',
+            symbol: g.sVal != null ? maps.sMap[g.sVal] : 'circle',
+            size: 10,
+            line: { width: 1, color: nodeBorderColor },
+          },
+        });
+      });
+    }
+
+    // overlay для выделенных нод (кольца поверх нод)
+    traces.push({
+      uid: 'nodes_highlight',
+      x: hNx,
+      y: hNy,
+      mode: 'markers',
+      hoverinfo: 'none',
+      showlegend: false,
+      marker: {
+        size: 12,
+        symbol: 'circle-open',
+        color: highlightNodeRingColor,
+        line: { width: 3 },
+      },
+      name: 'highlight_nodes',
+    });
+
+    // annotations для pinned
+    const pinnedSet = new Set(pinnedIds.map(String));
+    const idToNode = new Map(
+      vNodes.map(n => [String(n.id), n])
+    );
+    const anns = [];
+
+    pinnedSet.forEach(id => {
+      const n = idToNode.get(id);
+      if (!n) return;
+      let labelText =
+        (typeof n.compound === 'string' && n.compound.trim()) ||
+        n.display_id ||
+        n.id;
+      labelText = String(labelText);
+
+      anns.push({
+        x: n.x,
+        y: n.y,
+        text: `<b>${labelText}</b>`,
+        showarrow: false,
+        xanchor: 'center',
+        yanchor: 'bottom',
+        yshift: 8,
+        font: { size: 12 },
+      });
+    });
+
+    return { data: traces, annotations: anns };
+  }, [
+    nodes,
+    edges,
+    selLayer,
+    range,
+    hidden,
+    hideIso,
+    colorBy,
+    shapeBy,
+    maps,
+    gKey,
+    pinnedIds,
+    highlightCenters,
+    mode,
+  ]);
 
   /* legend interaction */
-  const onLegendClick = useCallback(ev=>{
-    const g=ev?.data?.[ev.curveNumber]?.name; if(!g) return false;
-    setHidden(p=>{const n=new Set(p); n.has(g)?n.delete(g):n.add(g); return n;});
+  const onLegendClick = useCallback(ev => {
+    const g = ev?.data?.[ev.curveNumber]?.name;
+    if (!g) return false;
+    setHidden(prev => {
+      const n = new Set(prev);
+      if (n.has(g)) n.delete(g);
+      else n.add(g);
+      return n;
+    });
+    return false; // отменить стандартное поведение Plotly
+  }, []);
+
+  const onLegendDouble = useCallback(() => {
+    setHidden(new Set());
     return false;
-  },[]);
-  const onLegendDouble = useCallback(()=>{ setHidden(new Set()); return false; },[]);
+  }, []);
 
-  /* relayout – axis memory */
-  const onRelayout = useCallback(ev=>{
-    if('xaxis.range[0]' in ev){
-      axisRef.current={
-        x:[ev['xaxis.range[0]'],ev['xaxis.range[1]']],
-        y:[ev['yaxis.range[0]'],ev['yaxis.range[1]']]
-      };
-    } else if('xaxis.autorange' in ev || 'yaxis.autorange' in ev){
-      axisRef.current=null;
-    }
-  },[]);
+  /* очистка всех selection (как _full_reset в Python) */
+  const clearSelections = useCallback(() => {
+    setPinnedIds([]);
+    setHighlightCenters([]);
+  }, []);
 
-  const legendTop = shapeBy && maps.cType==='continuous';
+  /* relayout – обработка зума и Reset axes */
+  const onRelayout = useCallback(
+    ev => {
+      if ('xaxis.range[0]' in ev) {
+        // зум / пан
+        axisRef.current = {
+          x: [ev['xaxis.range[0]'], ev['xaxis.range[1]']],
+          y: [ev['yaxis.range[0]'], ev['yaxis.range[1]']],
+        };
+        zoomRef.current = true;
+      } else if ('xaxis.autorange' in ev || 'yaxis.autorange' in ev) {
+        // Reset axes / двойной клик по пустому фону
+        axisRef.current = null;
+        if (zoomRef.current) {
+          // первый Reset после зума — только снять зум
+          zoomRef.current = false;
+        } else {
+          // не было зума → глобальный reset selection
+          clearSelections();
+        }
+      }
+    },
+    [clearSelections]
+  );
+
+  /* click по точке: pin label → toggle highlight center */
+  const onClick = useCallback(ev => {
+    if (!ev || !ev.points || !ev.points.length) return;
+    const pt = ev.points[0];
+    const cd = pt.data?.customdata;
+    if (!cd) return;
+    const idx = pt.pointIndex;
+    const nid = String(cd[idx]);
+
+    setPinnedIds(prev => {
+      const already = prev.includes(nid);
+      if (!already) {
+        // первый клик по ноде → пинним подпись
+        return [...prev, nid];
+      }
+
+      // нода уже pinned → переключаем её как highlight center
+      setHighlightCenters(prevCenters => {
+        const exists = prevCenters.includes(nid);
+        if (exists) {
+          return prevCenters.filter(id => id !== nid);
+        }
+        return [...prevCenters, nid];
+      });
+
+      // pinned состав не меняем
+      return prev;
+    });
+  }, []);
+
+  const legendTop = shapeBy && maps.cType === 'continuous';
   const legendCfg = legendTop
-    ? {orientation:'h',x:0.5,y:1.05,xanchor:'center',yanchor:'bottom',
-       itemwidth:30,itemsizing:'trace',tracegroupgap:12}
-    : {orientation:'v',x:1.02,y:1,xanchor:'left',tracegroupgap:8};
+    ? {
+        orientation: 'h',
+        x: 0.5,
+        y: 1.05,
+        xanchor: 'center',
+        yanchor: 'bottom',
+        itemwidth: 30,
+        itemsizing: 'trace',
+        tracegroupgap: 12,
+      }
+    : {
+        orientation: 'v',
+        x: 1.02,
+        y: 1,
+        xanchor: 'left',
+        tracegroupgap: 8,
+      };
 
-  const makeLayout = full => ({
-    title:'Network Plot', hovermode:'closest', showlegend:true, legend:legendCfg,
-    margin:full ? {l:20,r:20,t:40,b:20} :
-                  {l:20,r:60,t:legendTop?70:40,b:20},
-    xaxis:{visible:false,
-           ...(axisRef.current?{range:axisRef.current.x,autorange:false}:{})},
-    yaxis:{visible:false,
-           ...(axisRef.current?{range:axisRef.current.y,autorange:false}:{})},
-    uirevision:'network'
-  });
-
-  /* ───────── Plotly‑блок ───────── */
+  /* ───────── Plotly-блок ───────── */
   const PlotBox = ({ full }) => {
-    const theme = useTheme();      // берём активную тему
+    const themeInner = useTheme();
 
-    const layout = React.useMemo(
+    const layout = useMemo(
       () => ({
         title: 'Network Plot',
         hovermode: 'closest',
         showlegend: true,
         legend: {
-            ...legendCfg,
-            font: { color: theme.palette.text.primary },   // ← цвет текста легенды
-          },
-          font: { color: theme.palette.text.primary },     // ← базовый цвет всех надписей
-
+          ...legendCfg,
+          font: { color: themeInner.palette.text.primary },
+        },
+        font: { color: themeInner.palette.text.primary },
         margin: full
           ? { l: 20, r: 20, t: 40, b: 20 }
           : { l: 20, r: 60, t: legendTop ? 70 : 40, b: 20 },
-
-        /* — фон Plotly — */
-        paper_bgcolor: theme.palette.card.plot,        // фон «карточки» графика
+        paper_bgcolor: themeInner.palette.card.plot,
         plot_bgcolor:
-          theme.palette.mode === 'dark'
-            ? theme.palette.card.plot   // ночью совпадает с карточкой
-            : theme.palette.background.paper, // днём остаётся белым // внутренняя область
-
+          themeInner.palette.mode === 'dark'
+            ? themeInner.palette.card.plot
+            : themeInner.palette.background.paper,
         xaxis: {
           visible: false,
           ...(axisRef.current
@@ -398,8 +642,9 @@ const darkPalette = [
             : {}),
         },
         uirevision: 'network',
+        annotations,
       }),
-      [full, legendCfg, legendTop, theme]
+      [full, legendCfg, legendTop, themeInner, annotations]
     );
 
     return (
@@ -412,6 +657,7 @@ const darkPalette = [
             : { width: '100%', height: '600px' }
         }
         config={{ responsive: true }}
+        onClick={onClick}
         onLegendClick={onLegendClick}
         onLegendDoubleClick={onLegendDouble}
         onRelayout={onRelayout}
@@ -422,19 +668,26 @@ const darkPalette = [
   /* ───────── UI ───────── */
   return (
     <>
-      {/* ─── обычная карточка ─── */}
+      {/* обычная карточка */}
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
         <Card
-          sx={(theme) => ({
+          sx={themeInner => ({
             borderRadius: 2,
             boxShadow: 2,
             p: 2,
-            backgroundColor: theme.palette.card.plot,
+            backgroundColor: themeInner.palette.card.plot,
             width: '100%',
             maxWidth: 1000,
           })}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              mb: 2.5,
+            }}
+          >
             <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
               Network Plot
             </Typography>
@@ -445,30 +698,47 @@ const darkPalette = [
 
           <Panel
             columns={cols}
-            colorBy={colorBy} setColorBy={setColorBy}
-            shapeBy={shapeBy} setShapeBy={setShapeBy}
-            selLayer={selLayer} setSelLayer={setSelLayer} layerNames={layerNames}
-            hideIso={hideIso} setHideIso={setHideIso}
-            minW={minW} maxW={maxW} stepW={stepW}
-            range={range} setRange={setRange}
+            colorBy={colorBy}
+            setColorBy={setColorBy}
+            shapeBy={shapeBy}
+            setShapeBy={setShapeBy}
+            selLayer={selLayer}
+            setSelLayer={setSelLayer}
+            layerNames={layerNames}
+            hideIso={hideIso}
+            setHideIso={setHideIso}
+            minW={minW}
+            maxW={maxW}
+            stepW={stepW}
+            range={range}
+            setRange={setRange}
           />
 
           <PlotBox full={false} />
         </Card>
       </Box>
 
-      {/* ─── полноэкранный диалог ─── */}
+      {/* полноэкранный диалог */}
       <Dialog
         fullScreen
         open={full}
         onClose={toggleFull}
         PaperProps={{
-          sx: (theme) => ({
-            backgroundColor: theme.palette.card.plot,
+          sx: themeInner => ({
+            backgroundColor: themeInner.palette.card.plot,
           }),
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, pt: 3, mb: 0.5 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            p: 2,
+            pt: 3,
+            mb: 0.5,
+          }}
+        >
           <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
             Network Plot
           </Typography>
@@ -480,12 +750,20 @@ const darkPalette = [
         <Box sx={{ px: 2 }}>
           <Panel
             columns={cols}
-            colorBy={colorBy} setColorBy={setColorBy}
-            shapeBy={shapeBy} setShapeBy={setShapeBy}
-            selLayer={selLayer} setSelLayer={setSelLayer} layerNames={layerNames}
-            hideIso={hideIso} setHideIso={setHideIso}
-            minW={minW} maxW={maxW} stepW={stepW}
-            range={range} setRange={setRange}
+            colorBy={colorBy}
+            setColorBy={setColorBy}
+            shapeBy={shapeBy}
+            setShapeBy={setShapeBy}
+            selLayer={selLayer}
+            setSelLayer={setSelLayer}
+            layerNames={layerNames}
+            hideIso={hideIso}
+            setHideIso={setHideIso}
+            minW={minW}
+            maxW={maxW}
+            stepW={stepW}
+            range={range}
+            setRange={setRange}
           />
 
           <PlotBox full={true} />
