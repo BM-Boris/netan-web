@@ -20,9 +20,9 @@ const dataTypes = [
 ];
 
 const SAMPLE_FILES = [
-  { path: '/sample_data/mass_spec.csv',       name: 'mass_spec.csv',       type: 'metabolomics' },
-  { path: '/sample_data/meta_data.csv',       name: 'meta_data.csv',       type: 'meta' },
-  { path: '/sample_data/transcriptomics.csv', name: 'genes.csv', type: 'transcriptomics' },
+  { path: '/sample_data/LC.csv',       name: 'LC.csv',       type: 'metabolomics' },
+  { path: '/sample_data/meta.csv',       name: 'meta.csv',       type: 'meta' },
+  { path: '/sample_data/GC.csv', name: 'GC.csv', type: 'targeted_metabol' },
 ];
 
 

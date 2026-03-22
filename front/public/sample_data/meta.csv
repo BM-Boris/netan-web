@@ -1,0 +1,55 @@
+Sample.ID.in.Emory.File,Source,Age.at.PSC.diagnosis,Age.at.bile.collection,sex,IBD,Ursodiol,blood.pressure.meds,antihyperlipidemics,Gastrointestinal.Meds,Vitamins.Supplements
+LS10004,Mayo,53,74,female,UC,Yes,No,simvastatin ,No,No
+LS10006,Mayo,17,20,female,CD,No,No,No,No,No
+LS10016-1,Mayo,28,30,male,CD,No,No,No,No,cholecalciferol (Vitamin D3)
+LS10023-2,Mayo,59,67,female,UC,No,No,No,No,Multivitamins; Calcium carbonate; Vitamin D3; Vitamin B12; 
+LS10026-2,Mayo,11,23,male,UC,No,No,No,No,Centrum
+LS10027-3,Mayo,44,46,male,UC,No,No,No,No,cholecalciferol (Vitamin D3)
+LS10031-1,Mayo,29,48,female,UC,No,No,No,Ranitidine,Multivitamins; Vitamin D; Vitamin E
+LS10036-2,Mayo,27,31,male,,Yes,No,No,Loperamide; Omeprazole; Rolaids Advanced (calcium carbonate and magnesium hydroxide),Vitamin C; Vitamin D3
+LS10048-2A,Mayo,21,31,male,CD,Yes,No,No,Omeprazole,No
+LS10101-2A,Mayo,33,71,female,,No,No,No,No,Mulitvitamins
+LS10250-2,Mayo,15,47,male,UC,Yes,No,No,No,No
+LS10122-10A,Mayo,60,71,female,UC,No,Lisinopril,Omega 3 ,No,Calcium; Vitamin D3; Vitamin A
+LS10028-2,Mayo,27,31,male,UC,Yes,No,No,No,No
+LS10034-3,Mayo,33,45,female,UC,No,No,No,No,Calcium; Vitamin D3
+49,Norway,43,44,female,UC,No,No,No,No,No
+53,Norway,40,41,female,UC,No,No,No,No,No
+60,Norway,29,30,female,,No,No,No,No,No
+90,Norway,43,59,male,,No,No,No,No,No
+202,Norway,64,70,female,,No,No,No,No,Calcium; Vitamin D3
+224,Norway,31,37,female,UC,Yes,No,No,No,No
+243,Norway,24,31,female,UC,Yes,No,No,No,No
+264,Norway,50,51,female,Indeterminate,No,No,No,No,No
+330,Norway,35,43,female,,Yes,No,No,No,No
+337,Norway,26,44,female,UC,Yes,Propranolol,No,Esomeprazol,No
+369,Norway,26,26,male,,Yes,No,No,No,No
+385,Norway,26,47,male,UC,No,No,No,No,Calcium; Vitamin D3; vitamin C; magnesium
+391,Norway,57,61,female,UC,No,No,No,No,No
+400,Norway,15,17,male,UC,Yes,No,No,No,Calcium; Vitamin D3
+410,Norway,36,36,male,UC,No,Propranolol,No,Pantoprazole,Calcium; Vitamin D3
+431,Norway,58,58,male,,No,No,No,No,No
+474,Norway,53,55,male,UC,No,No,No,No,No
+515,Norway,43,43,female,,No,No,No,No,No
+537,Norway,47,62,male,,Yes,Bisoprolol,No,No,No
+589,Norway,25,36,male,UC,No,No,No,No,No
+612,Norway,30,39,male,UC,No,No,No,No,No
+26,Norway,37,48,male,UC,No,No,No,No,No
+52,Norway,19,30,male,,No,No,No,Pantoprazole,No
+446,Norway,35,49,female,UC,No,No,No,No,No
+843,Norway,42,43,male,UC,No,No,No,No,No
+919,Norway,41,45,female,,Yes,No,No,No,Ferrosulfate
+2042,Norway,50,52,female,UC,No,No,No,Esomeprazol,No
+2063,Norway,22,23,male,UC,No,No,No,No,No
+2094,Norway,15,19,female,CD,Yes,No,No,Esomeprazol,No
+2098,Norway,41,48,male,UC,Yes,No,No,Omeprazole,Calcium; Vitamin D3
+LS10009,Mayo,30,48,male,UC,No,Nadolol; Dyrenium (Triamterene); Furosemide (Lasix),No,Omeprazole,Ergocalciferol; Calcium citrate; Klor-Con (Potassium chloride)
+LS10013-6,Mayo,49,50,male,UC,No,No,No,Omeprazole,Multivitamins
+LS10014-3,Mayo,61,64,female,,No,Metoprolol tartrate,No,No,No
+LS10017-4,Mayo,35,50,female,UC,No,No,No,No,No
+LS10011-3,Mayo,55,67,female,,No,Atenolol; Furosemide,simvastatin ,No,Vitamin D
+LS10020-4,Mayo,73,76,male,UC,Yes,Hydrochlorothiazide; Losartan,No,Omeprazole,Vitamin B12; Vitamin C; Vitamin D3; Folic acid
+LS10010,Mayo,63,66,male,,Yes,Furosemide; Propranolol; Spironolactone,No,No,Ergocalciferol; Multivitamins
+LS10002-5,Mayo,62,67,male,CD,No,Lisinopril,No,Zantac (Ranitidine),No
+LS10008,Mayo,70,71,male,,No,Valsartan; Terazosin,No,No,No
+LS10025-4,Mayo,70,78,female,Yes,No,Diovan (Valsartan),Omega 3 ,No,Vitamin D3; Multivitamins

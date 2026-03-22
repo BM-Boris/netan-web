@@ -27,7 +27,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 // CONSTANT MAPS – edge‑threshold defaults + lower bounds ("starting point")
 // ────────────────────────────────────────────────────────────────────────────────
 const EDGE_THRESHOLD_DEFAULTS = {
-  spearman: 0.75,
+  spearman: 0.6,
   clr: 2.5,
   rf: 0.025,
   glasso:0.1,
