@@ -178,6 +178,28 @@ function buildSingleFileParams() {
   };
 }
 
+function cloneParamObject(obj) {
+  return JSON.parse(JSON.stringify(obj || buildSingleFileParams()));
+}
+
+function asSingleParam(value) {
+  if (Array.isArray(value)) {
+    return cloneParamObject(value[0] || buildSingleFileParams());
+  }
+  return cloneParamObject(value || buildSingleFileParams());
+}
+
+function asParamArray(value, count) {
+  const size = Math.max(count || 0, 1);
+  if (Array.isArray(value)) {
+    const out = value.slice(0, size).map(cloneParamObject);
+    while (out.length < size) out.push(buildSingleFileParams());
+    return out;
+  }
+  const single = asSingleParam(value);
+  return new Array(size).fill(null).map(() => cloneParamObject(single));
+}
+
 const ParametersForm = ({ onChangeParams, syncAll = true, files = [] }) => {
   // Identify non-meta files
   const nonMetaFiles = useMemo(
@@ -218,30 +240,31 @@ const ParametersForm = ({ onChangeParams, syncAll = true, files = [] }) => {
   }, [onChangeParams]);
 
   const stripSections = useCallback((obj) => {
-    const clonedData = { ...obj.data };
-    if (!obj.preprocessingOn) {
+    const source = obj || buildSingleFileParams();
+    const clonedData = { ...(source.data || {}) };
+    if (!source.preprocessingOn) {
       PREPROCESSING_PARAMS.forEach((p) => delete clonedData[p.name]);
     }
-    if (!obj.filterOn) {
+    if (!source.filterOn) {
       FILTER_PARAMS.forEach((p) => delete clonedData[p.name]);
     }
     return {
       data: clonedData,
-      preprocessingOn: obj.preprocessingOn,
-      filterOn: obj.filterOn
+      preprocessingOn: Boolean(source.preprocessingOn),
+      filterOn: Boolean(source.filterOn)
     };
   }, []);
 
   const sendToParent = useCallback((updatedNetwork, updatedPreFilter) => {
     const finalPreFilter = syncAll
-      ? stripSections(updatedPreFilter)
-      : updatedPreFilter.map(stripSections);
+      ? stripSections(asSingleParam(updatedPreFilter))
+      : asParamArray(updatedPreFilter, nonMetaFiles.length).map(stripSections);
 
     onChangeParamsRef.current?.({
       networkParams: { ...updatedNetwork },
       preFilterParams: finalPreFilter
     });
-  }, [stripSections, syncAll]);
+  }, [nonMetaFiles.length, stripSections, syncAll]);
 
   // Hide network parameters while switching sync mode, then show after a delay
   useEffect(() => {
@@ -276,11 +299,7 @@ const ParametersForm = ({ onChangeParams, syncAll = true, files = [] }) => {
     } else if (oldSync && !newSync) {
       // Switching from sync to non-sync: replicate single object.
       if (!Array.isArray(preFilterParams)) {
-        const singleObj = preFilterParams;
-        const newArr = new Array(newCount || 1).fill(null).map(() =>
-          JSON.parse(JSON.stringify(singleObj))
-        );
-        setPreFilterParams(newArr);
+        setPreFilterParams(asParamArray(preFilterParams, newCount));
         const preVal = typeof openPreprocessing === 'boolean' ? openPreprocessing : true;
         const filtVal = typeof openFilter === 'boolean' ? openFilter : true;
         setOpenPreprocessing(new Array(newCount || 1).fill(preVal));
@@ -706,10 +725,9 @@ const handleNetDialogClose    = () => setNetDialogOpen(false);
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
       {syncAll ? (
-        renderOneFileCard('Parameters (All Non-Meta Files)', preFilterParams, 0)
+        renderOneFileCard('Parameters (All Non-Meta Files)', asSingleParam(preFilterParams), 0)
       ) : (
-        Array.isArray(preFilterParams) &&
-        preFilterParams.map((paramObj, idx) => {
+        asParamArray(preFilterParams, nonMetaFiles.length).map((paramObj, idx) => {
           const fileName = (nonMetaFiles[idx] && nonMetaFiles[idx].file?.name) || `File ${idx + 1}`;
           return renderOneFileCard(`Parameters - ${fileName}`, paramObj, idx);
         })
