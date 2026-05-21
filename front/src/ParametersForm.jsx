@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Card,
-  CardContent,
   Typography,
   TextField,
   MenuItem,
@@ -22,23 +21,6 @@ import {
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-
-// ────────────────────────────────────────────────────────────────────────────────
-// CONSTANT MAPS – edge‑threshold defaults + lower bounds ("starting point")
-// ────────────────────────────────────────────────────────────────────────────────
-const EDGE_THRESHOLD_DEFAULTS = {
-  spearman: 0.6,
-  clr: 2.5,
-  rf: 0.025,
-  glasso:0.1,
-};
-
-const EDGE_THRESHOLD_MIN = {
-  spearman: 0.3,
-  clr: 1.5,
-  rf: 0.001,
-  glasso: 0,
-};
 
 // ────────────────────────────────────────────────────────────────────────────────
 // NEW → stats‑threshold defaults per chosen method
@@ -114,20 +96,22 @@ const NETWORK_PARAMS = [
     options: ['mean','median','max'], 
     default: 'mean'
   },
-  { name: 'edgeThreshold', label: 'Edge Threshold', type: 'number', step: 0.01, default: 0.75 },
+  { name: 'thrRaw', label: 'Raw threshold', type: 'number', step: 0.01, min: 0, default: '' },
+  { name: 'thrNorm', label: 'Normalized threshold', type: 'number', step: 0.01, min: 0, max: 1, default: '' },
+  { name: 'autoTarget', label: 'Auto target (%)', type: 'number', step: 1, min: 1, max: 100, default: 95 },
+  {
+    name: 'knn',
+    label: 'kNN',
+    type: 'select',
+    options: ['auto', 'off', '1', '2', '3', '5', '10', '15', '20'],
+    default: 'auto'
+  },
   {
     name: 'layout', 
     label: 'Layout', 
     type: 'select', 
     options: ['force-directed','circular','kamada_kawai','random'], 
     default: 'force-directed'
-  },
-  {
-    name: 'weights', 
-    label: 'Edge Weights', 
-    type: 'select', 
-    options: ['on','off'], 
-    default: 'on'
   }
 ];
 
@@ -169,10 +153,10 @@ const normalizationMap = {
   'Graphical Lasso': 'glasso',
 };
 
-const labelWidth = { xs: 120, sm: 130 }; 
-const fixedWidth = { xs: 140, sm: 150 }; 
-const commonHeight = 40;
-const sectionTitleStyle = { fontWeight: 'bold', mb: 1 };
+const labelWidth = { xs: 116, sm: 124 };
+const fixedWidth = { xs: 180, sm: 180 };
+const commonHeight = 42;
+const sectionTitleStyle = { fontWeight: 800, mb: 1 };
 
 // Build a param object for a single file
 function buildSingleFileParams() {
@@ -205,8 +189,6 @@ const ParametersForm = ({ onChangeParams, syncAll = true, files = [] }) => {
   [...NETWORK_PARAMS_CORE, ...EXTRA_NET_PARAMS].forEach(p => {
     initNetwork[p.name] = p.default;
   });
-  initNetwork.edgeThreshold =
-    EDGE_THRESHOLD_DEFAULTS[initNetwork.networkMethod];
 
   const [networkParams, setNetworkParams] = useState(initNetwork);
 
@@ -229,9 +211,31 @@ const ParametersForm = ({ onChangeParams, syncAll = true, files = [] }) => {
   // Add state to control network parameters card visibility
   const [showNetwork, setShowNetwork] = useState(true);
 
-  useEffect(() => {
-    sendToParent(networkParams, preFilterParams);
-  }, []); 
+  const stripSections = useCallback((obj) => {
+    const clonedData = { ...obj.data };
+    if (!obj.preprocessingOn) {
+      PREPROCESSING_PARAMS.forEach((p) => delete clonedData[p.name]);
+    }
+    if (!obj.filterOn) {
+      FILTER_PARAMS.forEach((p) => delete clonedData[p.name]);
+    }
+    return {
+      data: clonedData,
+      preprocessingOn: obj.preprocessingOn,
+      filterOn: obj.filterOn
+    };
+  }, []);
+
+  const sendToParent = useCallback((updatedNetwork, updatedPreFilter) => {
+    const finalPreFilter = syncAll
+      ? stripSections(updatedPreFilter)
+      : updatedPreFilter.map(stripSections);
+
+    onChangeParams?.({
+      networkParams: { ...updatedNetwork },
+      preFilterParams: finalPreFilter
+    });
+  }, [onChangeParams, stripSections, syncAll]);
 
   // Hide network parameters while switching sync mode, then show after a delay
   useEffect(() => {
@@ -244,7 +248,7 @@ const ParametersForm = ({ onChangeParams, syncAll = true, files = [] }) => {
   
   useEffect(() => {
     sendToParent(networkParams, preFilterParams);
-  }, [networkParams, preFilterParams]);
+  }, [networkParams, preFilterParams, sendToParent]);
   // Adjust parameter objects when sync mode or file count changes
   useEffect(() => {
     const oldCount = prevNonMetaCountRef.current;
@@ -322,45 +326,21 @@ const handleDialogClose       = () => setDialogOpen(false);
 const handleNetDialogOpen     = () => setNetDialogOpen(true);
 const handleNetDialogClose    = () => setNetDialogOpen(false);
 
-  // Helper to strip sections that are toggled off before sending to parent
-  const stripSections = (obj) => {
-    const clonedData = { ...obj.data };
-    if (!obj.preprocessingOn) {
-      PREPROCESSING_PARAMS.forEach((p) => delete clonedData[p.name]);
-    }
-    if (!obj.filterOn) {
-      FILTER_PARAMS.forEach((p) => delete clonedData[p.name]);
-    }
-    return {
-      data: clonedData,
-      preprocessingOn: obj.preprocessingOn,
-      filterOn: obj.filterOn
-    };
-  };
-
-  // Finalize and send parameters to parent
-  const sendToParent = (updatedNetwork, updatedPreFilter) => {
-    let finalPreFilter;
-    if (syncAll) {
-      finalPreFilter = stripSections(updatedPreFilter);
-    } else {
-      finalPreFilter = updatedPreFilter.map(stripSections);
-    }
-    onChangeParams?.({
-      networkParams: { ...updatedNetwork },
-      preFilterParams: finalPreFilter
-    });
-  };
-
-  // Network param changes (handles dynamic edge‑threshold defaults/mins)
+  // Network param changes
   const handleNetworkChange = (e) => {
     const { name, value } = e.target;
     setNetworkParams((prev) => {
       let updated = { ...prev, [name]: value };
 
-      // When the network method changes → update edge‑threshold default
-      if (name === 'networkMethod') {
-        updated.edgeThreshold = EDGE_THRESHOLD_DEFAULTS[value];
+      if (name === 'thrRaw' && value !== '') {
+        updated.thrNorm = '';
+        updated.autoTarget = '';
+      } else if (name === 'thrNorm' && value !== '') {
+        updated.thrRaw = '';
+        updated.autoTarget = '';
+      } else if (name === 'autoTarget' && value !== '') {
+        updated.thrRaw = '';
+        updated.thrNorm = '';
       }
 
       sendToParent(updated, preFilterParams);
@@ -479,20 +459,24 @@ const handleNetDialogClose    = () => setNetDialogOpen(false);
     const methodCode      = normalizationMap[currentNetLabel] || currentNetLabel;
 
     return (
-      <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ mt: 1 }}>
+      <Grid container spacing={{ xs: 1.5, sm: 2 }} sx={{ mt: 1 }}>
         {paramDefs.map((pDef) => {
           const byMethod = pDef.methods && !pDef.methods.includes(methodCode);
           const isCombine = pDef.name === 'combineSamples';
           const aggregationDisabled = isCombine && (values['nodeMode'] !== 'samples' || values['layerMode'] !== 'multilayer');
-
-          const isEdgeThreshold = pDef.name === 'edgeThreshold';
-          const currentMin = isEdgeThreshold ? EDGE_THRESHOLD_MIN[values['networkMethod'] || networkParams.networkMethod] : undefined;
+          const isSparsity = ['thrRaw', 'thrNorm', 'autoTarget'].includes(pDef.name);
+          const activeSparsity =
+            values.thrRaw !== '' ? 'thrRaw' :
+            values.thrNorm !== '' ? 'thrNorm' :
+            values.autoTarget !== '' ? 'autoTarget' :
+            null;
 
           const isMetaOrThreshold = pDef.name === 'meta' || pDef.name === 'Threshold';
           const shouldDisable =  byMethod || aggregationDisabled || (isMetaOrThreshold && disableFilterExtras);
+          const showOff = isSparsity && activeSparsity && activeSparsity !== pDef.name;
 
           return (
-            <Grid item xs={12} sm={6} md={4} key={pDef.name}>
+            <Grid item xs={12} sm={6} key={pDef.name}>
               <Box display="flex" alignItems="center" gap={1}>
                 <Typography sx={{ width: labelWidth }}>
                   {pDef.label}:
@@ -524,14 +508,12 @@ const handleNetDialogClose    = () => setNetDialogOpen(false);
                   <TextField
                     name={pDef.name}
                     type="number"
-                    value={values[pDef.name]}
+                    value={showOff ? '' : values[pDef.name]}
                     onChange={onChangeFn}
                     onBlur={(e) => {
                       let v = parseFloat(e.target.value);
                       if (Number.isNaN(v)) return;
-                      const minVal = pDef.min !== undefined
-                        ? pDef.min 
-                        : (pDef.name === 'edgeThreshold' ? currentMin : undefined);
+                      const minVal = pDef.min;
                       const maxVal = pDef.max;
                       if (minVal !== undefined && v < minVal) v = minVal;
                       if (maxVal !== undefined && v > maxVal) v = maxVal;
@@ -542,7 +524,7 @@ const handleNetDialogClose    = () => setNetDialogOpen(false);
                     }}
                     inputProps={{
                       step:      pDef.step ?? 'any',
-                      min:       pDef.min !== undefined ? pDef.min : currentMin,
+                      min:       pDef.min,
                       max:       pDef.max,
                       inputMode: 'numeric',
                       pattern:   '[0-9]*'
@@ -555,6 +537,7 @@ const handleNetDialogClose    = () => setNetDialogOpen(false);
                     }}
                     size="small"
                     disabled={shouldDisable}
+                    placeholder={showOff ? 'off' : undefined}
                     sx={{
                       height: commonHeight,
                       minWidth: fixedWidth,
@@ -618,10 +601,10 @@ const handleNetDialogClose    = () => setNetDialogOpen(false);
           sx={(theme) => ({
             borderRadius: 2,
             boxShadow: 2,
-            p: 2,
+            p: 3,
             backgroundColor: theme.palette.card.main,
             width: '100%',
-            maxWidth: 1000,
+            maxWidth: 900,
             mb: 3
           })}
         >
@@ -683,10 +666,10 @@ const handleNetDialogClose    = () => setNetDialogOpen(false);
         sx={(theme) => ({
           borderRadius: 2,
           boxShadow: 2,
-          p: 2,
+          p: 3,
           backgroundColor: theme.palette.card.main,
           width: '100%',
-          maxWidth: 1000,
+          maxWidth: 900,
           mb: 3
         })}
       >
@@ -784,13 +767,19 @@ const handleNetDialogClose    = () => setNetDialogOpen(false);
             <strong>Aggregation:</strong> Fusion rule for multilayer (mean, median, max).
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
-            <strong>Edge Threshold:</strong> Minimum similarity value for an edge.
+            <strong>Raw Threshold:</strong> Method-scale cutoff for edge creation. Entering it turns normalized threshold and auto target off.
+          </Box>
+          <Box component="li" sx={{ mb: 1 }}>
+            <strong>Normalized Threshold:</strong> Cutoff on Netan normalized similarity from 0 to 1. Entering it turns raw threshold and auto target off.
+          </Box>
+          <Box component="li" sx={{ mb: 1 }}>
+            <strong>Auto Target:</strong> Target percent of nodes to keep active when no threshold is manually set.
+          </Box>
+          <Box component="li" sx={{ mb: 1 }}>
+            <strong>kNN:</strong> Optional k-nearest-neighbor sparsification after thresholding.
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
             <strong>Layout:</strong> Graph layout algorithm (force-directed, circular, Kamada-Kawai, random).
-          </Box>
-          <Box component="li" sx={{ mb: 1 }}>
-            <strong>Edge Weights:</strong> Toggle including similarity values on edges.
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
             <strong>n Neighbors:</strong> Number of neighbors for MI estimation in CLR.

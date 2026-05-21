@@ -4,7 +4,7 @@ import { Box, Grow, Card, CardContent, Typography, Link } from '@mui/material';
 const cardStyles = {
   borderRadius: 2,
   boxShadow: 2,
-  p: 2,
+  p: 3,
   backgroundColor: 'card.main',
 };
 
@@ -19,18 +19,17 @@ const Guide = () => (
       flexDirection: 'column',
       alignItems: 'center',
       width: '100%',
-      maxWidth: 1000,
+      maxWidth: 900,
       mx: 'auto',
-      px: 2,
     }}
   >
     {/* Introduction */}
     <Grow in timeout={500}>
-      <Card sx={{ ...cardStyles, width: '100%', mb: 4, mt: 2 }}>
+      <Card sx={{ ...cardStyles, width: '100%', mb: 4, mt: -1.3 }}>
         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 1 }}>
           Introduction
         </Typography>
-        <CardContent>
+        <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
           <Typography paragraph>
             Netan processes multi-omics feature tables entirely in your browser heap. You upload numeric data files (e.g., metabolite intensities, gene expression matrices), specify preprocessing and filtering rules, choose network inference methods, and get an interactive network visualization with data. 
           </Typography>
@@ -163,7 +162,7 @@ const Guide = () => (
             Spearman Correlation
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Ranks each variable’s values and computes the Spearman correlation matrix. Converts to binary adjacency by thresholding absolute values, then builds an undirected graph. If weights are enabled, edge weights reflect the absolute rank correlation.
+            Ranks each variable’s values and computes the Spearman correlation matrix. Netan sparsifies the similarity matrix with raw, normalized, or auto-target thresholds, then builds an undirected graph with edge weights from similarity values.
           </Typography>
         </Box>
         <Box component="li" sx={listItemStyles}>
@@ -313,7 +312,7 @@ const Guide = () => (
                 Filters & Zoom
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Filter layers, adjust edge weights, and hide disconnected nodes. Fullscreen, zoom, and legend toggles for navigation.
+                Filter layers by edge weight range and hide disconnected nodes. Fullscreen, zoom, and legend toggles for navigation.
               </Typography>
             </Box>
             <Box component="li" sx={listItemStyles}>
@@ -375,7 +374,7 @@ const Guide = () => (
             Single file in multilayer mode? Switch to Stack mode under Network Params.
           </Typography>
           <Typography paragraph>
-            Too many edges? Increase edgeThreshold or apply stricter feature filtering.
+            Too many edges? Increase the raw/normalized threshold, lower the auto target, or apply stricter feature filtering.
           </Typography>
           <Typography>
             For errors, open your browser console or check server logs for detailed messages.

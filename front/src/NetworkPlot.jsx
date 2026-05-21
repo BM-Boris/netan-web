@@ -147,7 +147,7 @@ const NetworkPlot = ({ nodes, edges }) => {
     k => !['id', 'x', 'y', 'compound', 'display_id'].includes(k)
   );
 
-  /* state: color/shape/layer/weights */
+  /* state: color/shape/layer/edge range */
   const [colorBy, setColorBy] = useState('');
   const [shapeBy, setShapeBy] = useState('');
   const [hideIso, setHideIso] = useState(false);
@@ -226,7 +226,7 @@ const NetworkPlot = ({ nodes, edges }) => {
       sMap[v] = symbols[i % symbols.length];
     });
     return { keys, cMap, sMap, cType: colType(colorBy, nodes) };
-  }, [nodes, colorBy, shapeBy, gKey, theme.palette.mode]);
+  }, [nodes, colorBy, shapeBy, gKey, palette]);
 
   /* ───────── основная сборка data + annotations ───────── */
   const { data, annotations } = useMemo(() => {
@@ -611,41 +611,38 @@ const NetworkPlot = ({ nodes, edges }) => {
   const PlotBox = ({ full }) => {
     const themeInner = useTheme();
 
-    const layout = useMemo(
-      () => ({
-        title: 'Network Plot',
-        hovermode: 'closest',
-        showlegend: true,
-        legend: {
-          ...legendCfg,
-          font: { color: themeInner.palette.text.primary },
-        },
+    const layout = {
+      title: 'Network Plot',
+      hovermode: 'closest',
+      showlegend: true,
+      legend: {
+        ...legendCfg,
         font: { color: themeInner.palette.text.primary },
-        margin: full
-          ? { l: 20, r: 20, t: 40, b: 20 }
-          : { l: 20, r: 60, t: legendTop ? 70 : 40, b: 20 },
-        paper_bgcolor: themeInner.palette.card.plot,
-        plot_bgcolor:
-          themeInner.palette.mode === 'dark'
-            ? themeInner.palette.card.plot
-            : themeInner.palette.background.paper,
-        xaxis: {
-          visible: false,
-          ...(axisRef.current
-            ? { range: axisRef.current.x, autorange: false }
-            : {}),
-        },
-        yaxis: {
-          visible: false,
-          ...(axisRef.current
-            ? { range: axisRef.current.y, autorange: false }
-            : {}),
-        },
-        uirevision: 'network',
-        annotations,
-      }),
-      [full, legendCfg, legendTop, themeInner, annotations]
-    );
+      },
+      font: { color: themeInner.palette.text.primary },
+      margin: full
+        ? { l: 20, r: 20, t: 40, b: 20 }
+        : { l: 20, r: 60, t: legendTop ? 70 : 40, b: 20 },
+      paper_bgcolor: themeInner.palette.card.plot,
+      plot_bgcolor:
+        themeInner.palette.mode === 'dark'
+          ? themeInner.palette.card.plot
+          : themeInner.palette.background.paper,
+      xaxis: {
+        visible: false,
+        ...(axisRef.current
+          ? { range: axisRef.current.x, autorange: false }
+          : {}),
+      },
+      yaxis: {
+        visible: false,
+        ...(axisRef.current
+          ? { range: axisRef.current.y, autorange: false }
+          : {}),
+      },
+      uirevision: 'network',
+      annotations,
+    };
 
     return (
       <Plot
@@ -656,7 +653,14 @@ const NetworkPlot = ({ nodes, edges }) => {
             ? { width: '100%', height: 'calc(100vh - 200px)' }
             : { width: '100%', height: '600px' }
         }
-        config={{ responsive: true }}
+        config={{
+          responsive: true,
+          toImageButtonOptions: {
+            format: 'png',
+            filename: 'netan_network',
+            scale: 4,
+          },
+        }}
         onClick={onClick}
         onLegendClick={onLegendClick}
         onLegendDoubleClick={onLegendDouble}
@@ -674,10 +678,10 @@ const NetworkPlot = ({ nodes, edges }) => {
           sx={themeInner => ({
             borderRadius: 2,
             boxShadow: 2,
-            p: 2,
+            p: 3,
             backgroundColor: themeInner.palette.card.plot,
             width: '100%',
-            maxWidth: 1000,
+            maxWidth: 900,
           })}
         >
           <Box

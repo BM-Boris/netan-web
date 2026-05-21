@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Card, CardContent, Typography, Button, Box, TextField, MenuItem, IconButton, Paper, 
+  Card, Typography, Button, Box, TextField, MenuItem, IconButton, Paper,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
   Switch,Grow,
   FormControlLabel 
@@ -38,7 +38,8 @@ const DataUploadWithType = ({ onFilesChange, onSyncChange }) => {
   // Whether we are syncing Pre/Filter params for multiple non-meta files
   const [syncAll, setSyncAll] = useState(true);
 
-  const commonHeight = { xs: 36, sm: 40 }; 
+  const commonHeight = { xs: 40, sm: 42 };
+  const secondaryButtonWidth = 172;
   const minFileNameWidth = 120;
   const maxFileNameLimit = 450;
 
@@ -119,18 +120,18 @@ const DataUploadWithType = ({ onFilesChange, onSyncChange }) => {
       <Grow in={true} timeout={500}>
       <Card 
         sx={(theme) => ({ 
-          mt: 4, 
+          mt: -1.3,
           borderRadius: 2, 
           boxShadow: 2, 
-          p: 2, 
+          p: 3,
           backgroundColor: theme.palette.card.main,
           width: '100%',
-          maxWidth: 1000,
+          maxWidth: 900,
         })}
       >
        
           <Box display="flex" alignItems="center" mb={2}>
-            <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
               Upload Data Files
             </Typography>
             <IconButton onClick={handleDialogOpen} color="primary" sx={{ ml: 1, mt: '-2px' }}>
@@ -147,7 +148,7 @@ const DataUploadWithType = ({ onFilesChange, onSyncChange }) => {
               flexDirection="row"
               flexWrap="wrap"
               alignItems="center"
-              gap={3}
+              gap={2}
               mb={2}
             >
               {/* File upload button */}
@@ -160,7 +161,7 @@ const DataUploadWithType = ({ onFilesChange, onSyncChange }) => {
                   height: commonHeight,
                   textTransform: 'none',
                   alignItems: 'center',
-                  minWidth: 150,
+                  minWidth: 140,
                 }}
               >
                 {upload.file ? 'Change File' : 'Select File'}
@@ -181,6 +182,7 @@ const DataUploadWithType = ({ onFilesChange, onSyncChange }) => {
                     height: commonHeight, 
                     display: 'flex', 
                     alignItems: 'center',
+                    borderRadius: 2,
                     width: fileNameWidth,
                     ...(fileNameWidth === maxFileNameLimit && {
                       overflow: 'hidden',
@@ -234,12 +236,16 @@ const DataUploadWithType = ({ onFilesChange, onSyncChange }) => {
             </Box>
           ))}
 
-          <Box mt={2} display="flex" alignItems="center" gap={3}>
+          <Box mt={2} display="flex" alignItems="center" gap={2} flexWrap="wrap">
             <Button
               variant="outlined"
               onClick={addUpload}
               startIcon={<AddIcon sx={{ mt: '-3px'}} />}
-              sx={{ textTransform: 'none', height: commonHeight }}
+              sx={{
+                textTransform: 'none',
+                height: commonHeight,
+                width: secondaryButtonWidth,
+              }}
             >
               Add more files
             </Button>
@@ -258,16 +264,16 @@ const DataUploadWithType = ({ onFilesChange, onSyncChange }) => {
             />
 
           </Box>
-          <Box mt={1}  display="flex" alignItems="center" gap={3}>
+          <Box mt={1}  display="flex" alignItems="center" gap={2}>
           <Button
-                //variant="outlined"
+                variant="outlined"
                 startIcon={<CloudUploadIcon />}
                 onClick={useSampleData}
                 sx={{ 
                   height: commonHeight,
                   textTransform: 'none',
                   alignItems: 'center',
-                  minWidth: 140,
+                  width: secondaryButtonWidth,
                 }}
               >
                  Sample Data

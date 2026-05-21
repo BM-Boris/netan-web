@@ -308,7 +308,7 @@ const NetworkBuilder = () => {
 
   // ───────── JSX ───────────────────────────────────────────────────────────
   return (
-    <Container sx={{ mt: 1 }}>
+    <Container maxWidth="md" sx={{ mt: 0, px: 0 }}>
       {/* Upload + Sync */}
       <DataUploadWithType
         onFilesChange={handleFilesChange}
@@ -326,10 +326,29 @@ const NetworkBuilder = () => {
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
         <Button
           variant="contained"
-          color="secondary"
           onClick={handleBuildNetwork}
           disabled={!canBuild || loading}
-          sx={{ textTransform: 'none', width: 200, fontSize: '1.2rem' }}
+          sx={(theme) => ({
+            width: 180,
+            fontSize: '1.08rem',
+            fontWeight: 800,
+            color: theme.palette.mode === 'light' ? '#fff8f2' : '#f7e7de',
+            backgroundColor: theme.palette.mode === 'light' ? '#b5501d' : '#632c19',
+            border: `1px solid ${theme.palette.mode === 'light' ? '#9f4318' : '#944521'}`,
+            boxShadow:
+              theme.palette.mode === 'light'
+                ? '0 10px 24px rgba(109, 47, 18, 0.18)'
+                : '0 12px 28px rgba(0, 0, 0, 0.42)',
+            '&:hover': {
+              backgroundColor: theme.palette.mode === 'light' ? '#9b4419' : '#7a351f',
+            },
+            '&.Mui-disabled': {
+              color: theme.palette.mode === 'light' ? '#8b786d' : '#8e7162',
+              backgroundColor: theme.palette.mode === 'light' ? '#eadfd6' : '#2b1912',
+              borderColor: theme.palette.mode === 'light' ? '#e1cbbd' : '#5e3b2c',
+              boxShadow: 'none',
+            },
+          })}
         >
           {loading ? 'Building…' : 'Build'}
         </Button>
@@ -373,7 +392,7 @@ const NetworkBuilder = () => {
               sx={(theme) => ({
                 p: 2,
                 backgroundColor: theme.palette.card.plot,
-                maxWidth: 1000,
+                maxWidth: 900,
                 m: '0 auto'
               })}
             >
