@@ -26,6 +26,7 @@ const colType = (col, data) => {
 
 const symbols = ['circle','square','diamond','triangle-up','triangle-down','cross','x','star'];
 const hiddenNodeColumns = new Set(['id', 'x', 'y', 'feature', 'feature_id', 'compound', 'display_id']);
+const trailingNodeColumns = ['community', 'module'];
 const graphOrder = ['Entire', 'Fused', 'Consensus', 'Cross'];
 const layerSort = (a, b) => {
   const ai = graphOrder.indexOf(a);
@@ -34,6 +35,19 @@ const layerSort = (a, b) => {
     return (ai === -1 ? graphOrder.length : ai) - (bi === -1 ? graphOrder.length : bi);
   }
   return String(a).localeCompare(String(b));
+};
+const plotLayers = e => e.plot_layers || e.plotLayers || [e.graph || e.layer].filter(Boolean);
+const nodeColumnSort = (columns) => {
+  const rank = col => {
+    const idx = trailingNodeColumns.indexOf(String(col).toLowerCase());
+    return idx === -1 ? 0 : idx + 1;
+  };
+  return [...columns].sort((a, b) => {
+    const ar = rank(a);
+    const br = rank(b);
+    if (ar !== br) return ar - br;
+    return String(a).localeCompare(String(b));
+  });
 };
 
 const lightPalette = [
@@ -172,7 +186,7 @@ const NetworkPlot = ({ nodes, edges }) => {
 
   /* dynamic column list */
   const cols = useMemo(
-    () => Object.keys(nodes[0] || {}).filter(k => !hiddenNodeColumns.has(k)),
+    () => nodeColumnSort(Object.keys(nodes[0] || {}).filter(k => !hiddenNodeColumns.has(k))),
     [nodes]
   );
 
@@ -199,7 +213,7 @@ const NetworkPlot = ({ nodes, edges }) => {
 
   /* layer names */
   const layerNames = useMemo(
-    () => [...new Set(edges.flatMap(e => e.layers || [e.layer]).filter(Boolean))].sort(layerSort),
+    () => [...new Set(edges.flatMap(plotLayers).filter(Boolean))].sort(layerSort),
     [edges]
   );
   const [selLayer, setSelLayer] = useState('');
@@ -280,7 +294,7 @@ const NetworkPlot = ({ nodes, edges }) => {
   
     /* filter edges by layer + weight */
     const eFilt = edges.filter(e => {
-      const list = e.layers || [e.layer];
+      const list = plotLayers(e);
       return (!selLayer || list.includes(selLayer)) &&
              e.weight >= range[0] && e.weight <= range[1];
     });
@@ -585,21 +599,17 @@ const NetworkPlot = ({ nodes, edges }) => {
     const nid = pointNodeId(ev.points[0]);
     if (!nid) return;
 
-    setPinnedIds(prev => {
-      const already = prev.includes(nid);
-      if (!already) {
-        return [...prev, nid];
-      }
+    if (!pinnedIds.includes(nid)) {
+      setPinnedIds(prev => (prev.includes(nid) ? prev : [...prev, nid]));
+      return;
+    }
 
-      setHighlightCenters(prevCenters => (
-        prevCenters.includes(nid)
-          ? prevCenters.filter(id => id !== nid)
-          : [...prevCenters, nid]
-      ));
-
-      return prev;
-    });
-  }, []);
+    setHighlightCenters(prevCenters => (
+      prevCenters.includes(nid)
+        ? prevCenters.filter(id => id !== nid)
+        : [...prevCenters, nid]
+    ));
+  }, [pinnedIds]);
 
   const legendTop = shapeBy && maps.cType === 'continuous';
   const legendCfg = useMemo(

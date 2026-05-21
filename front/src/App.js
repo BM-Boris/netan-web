@@ -1,12 +1,5 @@
 import React from 'react';
 import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  useLocation,
-  useNavigate,
-} from 'react-router-dom';
-import {
   Typography,
   Container,
   Box,
@@ -63,12 +56,26 @@ function SunIcon({ theme }) {
 
 /*────────────  главная раскладка  ────────────*/
 function MainLayout() {
-  const location   = useLocation();
-  const navigate   = useNavigate();
   const theme      = useTheme();
   const colorMode  = React.useContext(ColorModeContext);
-  const isGuide = location.pathname.replace(/\/$/, '') === '/guide';
-  const toggleGuide = () => navigate(isGuide ? '/' : '/guide');
+  const readGuideHash = () => window.location.hash.replace(/^#\/?/, '') === 'guide';
+  const [isGuide, setIsGuide] = React.useState(readGuideHash);
+
+  React.useEffect(() => {
+    const syncHash = () => setIsGuide(readGuideHash());
+    window.addEventListener('hashchange', syncHash);
+    syncHash();
+    return () => window.removeEventListener('hashchange', syncHash);
+  }, []);
+
+  const toggleGuide = () => {
+    if (isGuide) {
+      window.history.pushState(null, '', `${window.location.pathname}${window.location.search}`);
+      setIsGuide(false);
+    } else {
+      window.location.hash = 'guide';
+    }
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -212,10 +219,7 @@ function MainLayout() {
           py: { xs: 1.5, md: 2 },
         }}
       >
-        <Routes>
-          <Route path="/" element={<NetworkBuilder />} />
-          <Route path="/guide" element={<Guide />} />
-        </Routes>
+        {isGuide ? <Guide /> : <NetworkBuilder />}
       </Container>
 
       <Box
@@ -240,13 +244,8 @@ function MainLayout() {
   );
 }
 
-/*────────────  Router wrapper  ────────────*/
 function App() {
-  return (
-    <Router>
-      <MainLayout />
-    </Router>
-  );
+  return <MainLayout />;
 }
 
 export default App;

@@ -12,6 +12,15 @@ const listItemStyles = {
   marginBottom: 1,
 };
 
+const linkStyles = (theme) => ({
+  color: theme.palette.mode === 'dark' ? '#f0a17a' : theme.palette.secondary.main,
+  fontWeight: 700,
+  textDecorationColor: theme.palette.mode === 'dark' ? 'rgba(240, 161, 122, 0.55)' : undefined,
+  '&:hover': {
+    color: theme.palette.mode === 'dark' ? '#ffd0ba' : theme.palette.secondary.dark,
+  },
+});
+
 const Guide = () => (
   <Box
     sx={{
@@ -31,8 +40,22 @@ const Guide = () => (
         </Typography>
         <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
           <Typography paragraph>
-            Netan processes multi-omics feature tables entirely in your browser heap. You upload numeric data files (e.g., metabolite intensities, gene expression matrices), specify preprocessing and filtering rules, choose network inference methods, and get an interactive network visualization with data. 
+            Netan builds multi-omics networks from numeric feature tables. You upload data files, specify preprocessing and filtering rules, choose network inference methods, and get an interactive graph with downloadable data.
           </Typography>
+          <Typography paragraph>
+            For advanced workflows, including large-scale analyses, network tuning, label-guided ranking, stability-based feature selection, and programmatic graph inspection, use the Python package.
+          </Typography>
+          <Box sx={{ display: 'grid', gap: 0.5 }}>
+            <Typography>
+              Python docs: <Link sx={linkStyles} href="https://minasenko.com/netan" target="_blank" rel="noopener noreferrer">minasenko.com/netan</Link>
+            </Typography>
+            <Typography>
+              Install: <code>pip install netan</code>
+            </Typography>
+            <Typography>
+              GitHub: <Link sx={linkStyles} href="https://github.com/BM-Boris/netan" target="_blank" rel="noopener noreferrer">github.com/BM-Boris/netan</Link>
+            </Typography>
+          </Box>
         </CardContent>
       </Card>
     </Grow>
@@ -170,7 +193,7 @@ const Guide = () => (
             CLR (Context Likelihood of Relatedness)
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Computes pairwise mutual information via k-nearest-neighbors, symmetrizes the matrix, then transforms each MI value into a z-score using row- and column-wise statistics. Applies your threshold to the z-score matrix to form edges. Automatically aborts if the network becomes too dense.
+            Computes pairwise mutual information via k-nearest-neighbors, symmetrizes the matrix, then transforms each MI value into a z-score using row- and column-wise statistics. Netan applies raw, normalized, or auto-target sparsification and optional kNN pruning.
           </Typography>
         </Box>
         <Box component="li" sx={listItemStyles}>
@@ -178,7 +201,7 @@ const Guide = () => (
             Random Forest Similarity
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            For each feature, trains an ExtraTreesRegressor to predict that feature from all others; uses the tree’s feature_importances_ as similarity scores. Symmetrizes the importance matrix, applies the threshold, and constructs the graph. Weighted edges carry the averaged importance values.
+            For each feature, trains tree models to predict that feature from all others and uses feature importance as similarity. Netan symmetrizes the matrix, sparsifies it, and keeps weighted edges from averaged importance values.
           </Typography>
         </Box>
         <Box component="li" sx={listItemStyles}>
@@ -186,7 +209,7 @@ const Guide = () => (
             Graphical Lasso
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Fits a sparse inverse covariance (precision) model with L1 penalty to your data. Calculates partial correlations from the precision matrix, thresholds them to define edges, and builds the network. Automatically increases the penalty if the covariance estimate is not positive-definite. Weighted edges reflect the magnitude of partial correlations.
+            Fits a sparse inverse covariance model, calculates partial correlations from the precision matrix, and uses Netan sparsification to define weighted edges.
           </Typography>
         </Box>
       </Box>
@@ -222,7 +245,7 @@ const Guide = () => (
                 </Box>
                 <Box component="li">
                   <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                    Multilayer: builds separate networks per file, then merges with cross-layer and consensus tagging for edges.
+                    Multilayer: shows per-file layer graphs plus combined graph variants on one shared layout: Entire, Fused, Consensus, and Cross when available.
                   </Typography>
                 </Box>
               </Box>
@@ -232,7 +255,15 @@ const Guide = () => (
                 Aggregation
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Choose mean, median, or max to fuse similarity matrices when merging layers.
+                Choose mean, median, or max to build the Fused graph from layer similarity matrices. Entire is the union-style combined graph, Consensus keeps edges shared by layers, and Cross contains cross-layer feature links when feature multilayer mode is used.
+              </Typography>
+            </Box>
+            <Box component="li" sx={listItemStyles}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+                Sparsification
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Use either raw threshold, normalized threshold, or auto target. Entering one manual threshold disables the others; auto target defaults to 95%, and kNN defaults to auto.
               </Typography>
             </Box>
           </Box>
@@ -256,7 +287,7 @@ const Guide = () => (
                 Overall stats
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Total nodes and edges.
+                Total nodes, edges, density, mean degree, components, communities, and modules.
               </Typography>
             </Box>
             <Box component="li" sx={listItemStyles}>
@@ -280,7 +311,7 @@ const Guide = () => (
                 Layer stats
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Node/edge counts and densities per layer and consensus.
+                Node/edge counts, densities, mean degree, communities/modules, final thresholds, and final k for each graph/layer.
               </Typography>
             </Box>
           </Box>
@@ -320,7 +351,7 @@ const Guide = () => (
                 Export Options
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Download edge list CSV or merged feature–metadata table.
+                Download edge list CSV or merged feature–metadata table. Feature and annotation columns are kept first; sample-value columns are placed at the end.
               </Typography>
             </Box>
           </Box>
@@ -350,10 +381,10 @@ const Guide = () => (
           </Typography>
           <CardContent>
             <Typography paragraph>
-              Support: <Link href="mailto:boris.minasenko@emory.edu">boris.minasenko@emory.edu</Link>
+              Support: <Link sx={linkStyles} href="mailto:boris.minasenko@emory.edu">boris.minasenko@emory.edu</Link>
             </Typography>
             <Typography>
-              Code & docs: <Link href="https://github.com/BM-Boris/netan">github.com/BM-Boris/netan</Link>
+              Code: <Link sx={linkStyles} href="https://github.com/BM-Boris/netan">github.com/BM-Boris/netan</Link>
             </Typography>
           </CardContent>
         </Card>

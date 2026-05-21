@@ -176,6 +176,19 @@ def _safe_stat_key(label: str) -> str:
     return str(label).replace(" ", "_").replace(".", "_").replace(",", "_")
 
 
+def _first_record(df: pd.DataFrame) -> dict:
+    if not isinstance(df, pd.DataFrame) or df.empty:
+        return {}
+    return {k: _json_clean(v) for k, v in df.iloc[0].to_dict().items()}
+
+
+def _sample_last_columns(columns, sample_ids) -> list[str]:
+    samples = set(map(str, sample_ids))
+    cols = list(columns)
+    sample_cols = [col for col in cols if str(col) in samples]
+    return [col for col in cols if col not in sample_cols] + sample_cols
+
+
 def _unique_layer_names(rodins: list[object]) -> list[str]:
     reserved = {"entire", "fused", "consensus", "cross"}
     seen: set[str] = set()
@@ -210,8 +223,10 @@ def _layout_with_netan(nt, graph: str, layout: str) -> None:
 def _network_stats_payload(nt, graph: str) -> dict:
     G = nt._resolve_active_graph(graph)[1]
     info = nt.info(verbose=False)
+    params = _first_record(nt.params(graph=graph, verbose=False))
     rows = {str(row["graph"]): row for row in info.to_dict("records")}
     active = rows.get(graph, {})
+    active_stats = nt._graph_stats(graph)
     nstats = {
         "numNodes": int(active.get("nodes", G.number_of_nodes())),
         "numEdges": int(active.get("edges", G.number_of_edges())),
@@ -222,16 +237,33 @@ def _network_stats_payload(nt, graph: str) -> dict:
         "numComponents": nx.number_connected_components(G) if G.number_of_nodes() else 0,
         "numCommunities": int(active.get("communities", 0)),
         "numModules": int(active.get("modules", 0)),
+        "meanDegree": float(active_stats.get("meanDegree", 0.0)),
+        "meanDegreeActive": float(active_stats.get("meanDegreeActive", 0.0)),
+        "medianDegreeActive": float(active_stats.get("medianDegreeActive", 0.0)),
+        "maxDegreeActive": float(active_stats.get("maxDegreeActive", 0.0)),
+        "thresholdRaw": params.get("thr_raw", params.get("thr_raw_base")),
+        "thresholdNorm": params.get("thr_norm", params.get("thr_norm_base")),
+        "autoTarget": params.get("auto", params.get("auto_base")),
+        "kFinal": params.get("k", params.get("k_base")),
     }
 
     for row in info.to_dict("records"):
-        layer = _display_label(row["graph"])
+        graph_name = str(row["graph"])
+        layer = _display_label(graph_name)
         safe = _safe_stat_key(layer)
+        gstats = nt._graph_stats(graph_name)
+        gparams = _first_record(nt.params(graph=graph_name, verbose=False))
         nstats[f"nodes_{safe}"] = int(row.get("nodes", 0))
         nstats[f"edges_{safe}"] = int(row.get("edges", 0))
         nstats[f"density_{safe}"] = float(row.get("density_all", 0.0))
         nstats[f"modules_{safe}"] = int(row.get("modules", 0))
         nstats[f"communities_{safe}"] = int(row.get("communities", 0))
+        nstats[f"meanDegree_{safe}"] = float(gstats.get("meanDegree", 0.0))
+        nstats[f"meanDegreeActive_{safe}"] = float(gstats.get("meanDegreeActive", 0.0))
+        nstats[f"thrRaw_{safe}"] = gparams.get("thr_raw", gparams.get("thr_raw_base"))
+        nstats[f"thrNorm_{safe}"] = gparams.get("thr_norm", gparams.get("thr_norm_base"))
+        nstats[f"auto_{safe}"] = gparams.get("auto", gparams.get("auto_base"))
+        nstats[f"k_{safe}"] = gparams.get("k", gparams.get("k_base"))
     return nstats
 
 
@@ -261,7 +293,7 @@ def _serialize_netan(nt, graph: str, node_mode: str, layer_mode: str, rodin_coun
         edge_df = nt.edges(graph=graph_name).copy()
         for rec in edge_df.to_dict("records"):
             support_layers = sorted(_layer_tokens(rec.get("layers") or rec.get("layer")))
-            layers = [graph_label]
+            layers = support_layers or [graph_label]
             edge = {
                 "source": str(rec["source"]),
                 "target": str(rec["target"]),
@@ -270,13 +302,16 @@ def _serialize_netan(nt, graph: str, node_mode: str, layer_mode: str, rodin_coun
                 "support_layers": support_layers,
                 "layer": graph_label,
                 "layers": layers,
+                "plot_layers": [graph_label],
             }
             if node_mode == "features":
                 edge["source_compound"] = _json_clean(rec.get("source_compound")) or ""
                 edge["target_compound"] = _json_clean(rec.get("target_compound")) or ""
             edges_json.append(edge)
 
-    return nodes_json, edges_json, _network_stats_payload(nt, graph)
+    nstats = _network_stats_payload(nt, graph)
+    nstats["layerMode"] = layer_mode
+    return nodes_json, edges_json, nstats
 
 
 def _data_table_from_rodins(nt) -> list[dict]:
@@ -300,7 +335,11 @@ def _data_table_from_rodins(nt) -> list[dict]:
             .rename(columns={"feature_id": "feature"})
         )
         dfs.append(df)
-    return _records(pd.concat(dfs, ignore_index=True)) if dfs else []
+    if not dfs:
+        return []
+
+    out = pd.concat(dfs, ignore_index=True)
+    return _records(out[_sample_last_columns(out.columns, nt.sample_ids)])
 
 
 def _is_off(value: object) -> bool:

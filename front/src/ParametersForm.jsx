@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Card,
   Typography,
@@ -180,8 +180,9 @@ function buildSingleFileParams() {
 
 const ParametersForm = ({ onChangeParams, syncAll = true, files = [] }) => {
   // Identify non-meta files
-  const nonMetaFiles = files.filter(
-    (f) => f.type && f.type.toLowerCase() !== 'meta' && f.file
+  const nonMetaFiles = useMemo(
+    () => files.filter((f) => f.type && f.type.toLowerCase() !== 'meta' && f.file),
+    [files]
   );
 
   // Build a single network param object

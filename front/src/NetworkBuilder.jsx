@@ -24,6 +24,25 @@ import NetworkPlot from './NetworkPlot';
 
 const API = 'https://api.netan.io/api/build-network/';
 
+const formatMetric = (value, digits = 4) => (
+  typeof value === 'number' ? value.toFixed(digits) : (value ?? '?')
+);
+
+const csvCell = (value) => {
+  const s = String(value ?? '');
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+const orderedDataHeaders = (rows) => {
+  const headers = [];
+  rows.forEach(row => {
+    Object.keys(row).forEach(key => {
+      if (!headers.includes(key)) headers.push(key);
+    });
+  });
+  return headers;
+};
+
 const NetworkBuilder = () => {
   // ───────── Local state ───────────────────────────────────────────────────
   const [filesData, setFilesData] = useState([]);   // [{file, type}, …]
@@ -186,10 +205,15 @@ const NetworkBuilder = () => {
     lines.push(` - Total nodes: ${net.numNodes ?? '?'}`);
     lines.push(` - Edges: ${net.numEdges ?? '?'}`);
     lines.push(` - Nodes w/ edges: ${net.numNodesWithEdges ?? '?'}`);
-    lines.push(` - Density: ${(net.density ?? 0).toFixed(4)}`);
+    lines.push(` - Density: ${formatMetric(net.density)}`);
+    lines.push(` - Mean degree: ${formatMetric(net.meanDegree)}`);
     lines.push(` - Components: ${net.numComponents ?? '?'}`);
-    lines.push(` - Communities: ${net.numCommunities ?? '?'}`);
-    lines.push(` - Modules: ${net.numModules ?? '?'}`);
+    lines.push(` - Communities: ${net.numCommunities ?? '?'}, modules=${net.numModules ?? '?'}`);
+    lines.push(
+      ` - Thresholds: raw=${net.thresholdRaw ?? '-'}, ` +
+      `norm=${net.thresholdNorm ?? '-'}, auto=${net.autoTarget ?? '-'}, ` +
+      `k=${net.kFinal ?? '-'}`
+    );
 
     /* per‑layer */
     const layerDict = {}; // {layer:{nodes,edges,density,communities,modules}}
@@ -213,17 +237,43 @@ const NetworkBuilder = () => {
       } else if ((m = k.match(/^modules_(.+)/))) {
         lname = m[1];
         layerDict[lname] = { ...(layerDict[lname] || {}), modules: v };
+      } else if ((m = k.match(/^meanDegree_(.+)/))) {
+        lname = m[1];
+        layerDict[lname] = {
+          ...(layerDict[lname] || {}),
+          meanDegree: typeof v === 'number' ? v.toFixed(4) : v
+        };
+      } else if ((m = k.match(/^meanDegreeActive_(.+)/))) {
+        lname = m[1];
+        layerDict[lname] = {
+          ...(layerDict[lname] || {}),
+          meanDegreeActive: typeof v === 'number' ? v.toFixed(4) : v
+        };
+      } else if ((m = k.match(/^thrRaw_(.+)/))) {
+        lname = m[1];
+        layerDict[lname] = { ...(layerDict[lname] || {}), thrRaw: v };
+      } else if ((m = k.match(/^thrNorm_(.+)/))) {
+        lname = m[1];
+        layerDict[lname] = { ...(layerDict[lname] || {}), thrNorm: v };
+      } else if ((m = k.match(/^auto_(.+)/))) {
+        lname = m[1];
+        layerDict[lname] = { ...(layerDict[lname] || {}), auto: v };
+      } else if ((m = k.match(/^k_(.+)/))) {
+        lname = m[1];
+        layerDict[lname] = { ...(layerDict[lname] || {}), k: v };
       }
     });
 
-    if (Object.keys(layerDict).length) {
+    if (net.layerMode === 'multilayer' && Object.keys(layerDict).length) {
       lines.push('', 'Per‑layer Stats:');
       Object.entries(layerDict).forEach(([l, s]) => {
         const label = l.replace(/_/g, ' ');
         lines.push(
           ` • ${label}: nodes=${s.nodes ?? '?'}, edges=${s.edges ?? '?'}, ` +
-          `density=${s.density ?? '?'}, communities=${s.communities ?? '?'}, ` +
-          `modules=${s.modules ?? '?'}`
+          `density=${s.density ?? '?'}, mean_degree=${s.meanDegree ?? '?'}, ` +
+          `communities=${s.communities ?? '?'}, modules=${s.modules ?? '?'}, ` +
+          `thr_raw=${s.thrRaw ?? '-'}, thr_norm=${s.thrNorm ?? '-'}, ` +
+          `auto=${s.auto ?? '-'}, k=${s.k ?? '-'}`
         );
       });
     }
@@ -247,18 +297,12 @@ const NetworkBuilder = () => {
       const tgt   = e.target;
       const w     = e.weight ?? 1;
       const layer = e.layer ?? '';
-      const lays  = Array.isArray(e.layers) ? e.layers.join('|') : '';
+      const lays  = Array.isArray(e.layers) ? e.layers.join('|') : (e.layers ?? '');
   
       const row = [src, tgt, w, layer, lays];
       if (hasComp) row.push(e.source_compound ?? '', e.target_compound ?? '');
   
-      // простое CSV-экранирование
-      const csvRow = row.map(v => {
-        const s = String(v ?? '');
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-      }).join(',');
-  
-      lines.push(csvRow);
+      lines.push(row.map(csvCell).join(','));
     });
   
     const csv = lines.join('\n');
@@ -277,26 +321,15 @@ const NetworkBuilder = () => {
   const handleDownloadData = () => {
     if (!dataTable.length) return;
   
-    // 1) Собираем объединённый набор всех ключей из всех строк
-    const headerSet = new Set();
-    dataTable.forEach(row => {
-      Object.keys(row).forEach(key => headerSet.add(key));
-    });
-    const headers = Array.from(headerSet);
+    const headers = orderedDataHeaders(dataTable);
   
     // 2) Строим CSV-строки
     const lines = [];
     // Заголовок
-    lines.push(headers.join(','));
+    lines.push(headers.map(csvCell).join(','));
     // Данные
     dataTable.forEach(row => {
-      const line = headers
-        .map(h => {
-          const v = row[h];
-          // если undefined или null — оставляем пустым
-          return v == null ? '' : String(v);
-        })
-        .join(',');
+      const line = headers.map(h => csvCell(row[h])).join(',');
       lines.push(line);
     });
   
