@@ -140,9 +140,22 @@ def _records(df: pd.DataFrame) -> list[dict]:
     return [{k: _json_clean(v) for k, v in rec.items()} for rec in df.to_dict("records")]
 
 
+def _display_label(value: object) -> str:
+    raw = str(value)
+    lower = raw.lower()
+    canonical = {
+        "entire": "Entire",
+        "fused": "Fused",
+        "consensus": "Consensus",
+        "cross": "Cross",
+    }
+    if lower in canonical:
+        return canonical[lower]
+    return os.path.splitext(os.path.basename(raw))[0]
+
+
 def _layer_label(value: object) -> str:
-    label = str(value)
-    return "Entire" if label.lower() in {"entire", "fused"} else label
+    return _display_label(value)
 
 
 def _layer_tokens(value: object) -> set[str]:
@@ -155,7 +168,8 @@ def _layer_tokens(value: object) -> set[str]:
             return set()
     except (TypeError, ValueError):
         pass
-    return {_layer_label(token) for token in str(value).split("|") if token}
+    normalized = str(value).replace(",", "|")
+    return {_layer_label(token) for token in normalized.split("|") if token}
 
 
 def _safe_stat_key(label: str) -> str:
@@ -167,7 +181,8 @@ def _unique_layer_names(rodins: list[object]) -> list[str]:
     seen: set[str] = set()
     names = []
     for i, r in enumerate(rodins, start=1):
-        base = str((getattr(r, "uns", {}) or {}).get("file_name") or f"L{i}")
+        raw = str((getattr(r, "uns", {}) or {}).get("file_name") or f"L{i}")
+        base = os.path.splitext(os.path.basename(raw))[0]
         name = base if base.lower() not in reserved else f"{base}_layer"
         candidate = name
         suffix = 2
@@ -206,18 +221,31 @@ def _network_stats_payload(nt, graph: str) -> dict:
         "density": float(active.get("density_all", nx.density(G) if G.number_of_nodes() > 1 else 0.0)),
         "numComponents": nx.number_connected_components(G) if G.number_of_nodes() else 0,
         "numCommunities": int(active.get("communities", 0)),
+        "numModules": int(active.get("modules", 0)),
     }
 
-    skip = {graph, "entire", "fused"}
     for row in info.to_dict("records"):
-        layer = str(row["graph"])
-        if layer in skip:
-            continue
+        layer = _display_label(row["graph"])
         safe = _safe_stat_key(layer)
         nstats[f"nodes_{safe}"] = int(row.get("nodes", 0))
         nstats[f"edges_{safe}"] = int(row.get("edges", 0))
         nstats[f"density_{safe}"] = float(row.get("density_all", 0.0))
+        nstats[f"modules_{safe}"] = int(row.get("modules", 0))
+        nstats[f"communities_{safe}"] = int(row.get("communities", 0))
     return nstats
+
+
+def _graph_names_for_payload(nt, active_graph: str, layer_mode: str) -> list[str]:
+    if layer_mode != "multilayer":
+        return [active_graph]
+
+    names = []
+    for name in ("entire", "fused", "consensus", "cross", *map(str, nt.names)):
+        if name in names:
+            continue
+        if nt._graph_obj(name) is not None:
+            names.append(name)
+    return names or [active_graph]
 
 
 def _serialize_netan(nt, graph: str, node_mode: str, layer_mode: str, rodin_count: int):
@@ -227,28 +255,26 @@ def _serialize_netan(nt, graph: str, node_mode: str, layer_mode: str, rodin_coun
     )
     nodes_json = _records(node_df)
 
-    edge_df = nt.edges(graph=graph).copy()
     edges_json = []
-    for rec in edge_df.to_dict("records"):
-        layers = _layer_tokens(rec.get("layers") or rec.get("layer"))
-        if (
-            node_mode == "samples"
-            and layer_mode == "multilayer"
-            and len([x for x in layers if x not in {"Entire", "consensus"}]) == rodin_count
-        ):
-            layers.add("consensus")
-        layers = sorted(layers) or ["Entire"]
-        edge = {
-            "source": str(rec["source"]),
-            "target": str(rec["target"]),
-            "weight": float(rec.get("weight", 1) or 1),
-            "layer": ",".join(layers),
-            "layers": layers,
-        }
-        if node_mode == "features":
-            edge["source_compound"] = _json_clean(rec.get("source_compound")) or ""
-            edge["target_compound"] = _json_clean(rec.get("target_compound")) or ""
-        edges_json.append(edge)
+    for graph_name in _graph_names_for_payload(nt, graph, layer_mode):
+        graph_label = _display_label(graph_name)
+        edge_df = nt.edges(graph=graph_name).copy()
+        for rec in edge_df.to_dict("records"):
+            support_layers = sorted(_layer_tokens(rec.get("layers") or rec.get("layer")))
+            layers = [graph_label]
+            edge = {
+                "source": str(rec["source"]),
+                "target": str(rec["target"]),
+                "weight": float(rec.get("weight", 1) or 1),
+                "graph": graph_label,
+                "support_layers": support_layers,
+                "layer": graph_label,
+                "layers": layers,
+            }
+            if node_mode == "features":
+                edge["source_compound"] = _json_clean(rec.get("source_compound")) or ""
+                edge["target_compound"] = _json_clean(rec.get("target_compound")) or ""
+            edges_json.append(edge)
 
     return nodes_json, edges_json, _network_stats_payload(nt, graph)
 
@@ -533,7 +559,7 @@ def _network_worker(task_id: str,
             method_kwargs["alpha"] = float(net_p.get("glassoAlpha", 0.05))
             method_kwargs["max_iter"] = int(net_p.get("glassoMaxIter", 200))
 
-        graph_choice = "fused" if nmode == "samples" and lmode == "multilayer" else "entire"
+        graph_choice = "entire"
         set_progress(30)
         build_sparsity = {k: sparsity[k] for k in ("thr_raw", "thr_norm", "auto_target", "k")}
         _build_with_tqdm_progress(

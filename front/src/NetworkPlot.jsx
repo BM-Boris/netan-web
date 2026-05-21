@@ -25,7 +25,53 @@ const colType = (col, data) => {
 };
 
 const symbols = ['circle','square','diamond','triangle-up','triangle-down','cross','x','star'];
-const safeId  = s => String(s).replace(/[^A-Za-z0-9_-]/g, '_');
+const hiddenNodeColumns = new Set(['id', 'x', 'y', 'feature', 'feature_id', 'compound', 'display_id']);
+const graphOrder = ['Entire', 'Fused', 'Consensus', 'Cross'];
+const layerSort = (a, b) => {
+  const ai = graphOrder.indexOf(a);
+  const bi = graphOrder.indexOf(b);
+  if (ai !== -1 || bi !== -1) {
+    return (ai === -1 ? graphOrder.length : ai) - (bi === -1 ? graphOrder.length : bi);
+  }
+  return String(a).localeCompare(String(b));
+};
+
+const lightPalette = [
+  '#c0392b', '#2980b9', '#27ae60', '#e67e22', '#8e44ad', '#8d6e63',
+  '#d81b60', '#7f8c8d', '#00897b', '#f4c20d', '#00acc1', '#ad1457',
+  '#afc52f', '#556b2f', '#6d214f', '#303f9f', '#bdc3c7', '#9b59b6',
+  '#3f51b5', '#ff7043', '#c0b283', '#40e0d0',
+];
+
+const darkPalette = [
+  '#ff4d6d', '#2ecfff', '#13ffae', '#ff9e2c', '#c792ff', '#b87333',
+  '#ff6ec7', '#b0bec5', '#1cf0c8', '#ffd95c', '#46cfff', '#ff4fff',
+  '#7dff3b', '#9ccc65', '#ff5e99', '#5c6cff', '#9ea7ff', '#b388ff',
+  '#7ea2ff', '#ff8a65', '#e7d691', '#63ffda',
+];
+
+const plotConfig = {
+  responsive: true,
+  displaylogo: false,
+  toImageButtonOptions: {
+    format: 'png',
+    filename: 'netan_network',
+    scale: 4,
+  },
+};
+
+const pointNodeId = (pt) => {
+  if (pt?.customdata !== undefined && pt.customdata !== null) {
+    return String(pt.customdata);
+  }
+  const cd = pt?.data?.customdata;
+  if (!Array.isArray(cd)) return null;
+  const idx = pt.pointIndex ?? pt.pointNumber ?? pt.pointIndex2;
+  if (idx === undefined || idx === null || cd[idx] === undefined || cd[idx] === null) {
+    return null;
+  }
+  return String(cd[idx]);
+};
 
 /* ───────── control panel ───────── */
 const Panel = ({
@@ -122,29 +168,12 @@ const Panel = ({
 const NetworkPlot = ({ nodes, edges }) => {
   const theme = useTheme();
   const mode = theme.palette.mode;
-
-  /*─────────────────────────────────────────────
-    Цветовые палитры для нод
-  ─────────────────────────────────────────────*/
-  const lightPalette = [
-    '#c0392b', '#2980b9', '#27ae60', '#e67e22', '#8e44ad', '#8d6e63',
-    '#d81b60', '#7f8c8d', '#00897b', '#f4c20d', '#00acc1', '#ad1457',
-    '#afc52f', '#556b2f', '#6d214f', '#303f9f', '#bdc3c7', '#9b59b6',
-    '#3f51b5', '#ff7043', '#c0b283', '#40e0d0',
-  ];
-
-  const darkPalette = [
-    '#ff4d6d', '#2ecfff', '#13ffae', '#ff9e2c', '#c792ff', '#b87333',
-    '#ff6ec7', '#b0bec5', '#1cf0c8', '#ffd95c', '#46cfff', '#ff4fff',
-    '#7dff3b', '#9ccc65', '#ff5e99', '#5c6cff', '#9ea7ff', '#b388ff',
-    '#7ea2ff', '#ff8a65', '#e7d691', '#63ffda',
-  ];
-
   const palette = theme.palette.mode === 'dark' ? darkPalette : lightPalette;
 
   /* dynamic column list */
-  const cols = Object.keys(nodes[0] || {}).filter(
-    k => !['id', 'x', 'y', 'compound', 'display_id'].includes(k)
+  const cols = useMemo(
+    () => Object.keys(nodes[0] || {}).filter(k => !hiddenNodeColumns.has(k)),
+    [nodes]
   );
 
   /* state: color/shape/layer/edge range */
@@ -166,11 +195,11 @@ const NetworkPlot = ({ nodes, edges }) => {
   useEffect(() => {
     if (!cols.includes(colorBy)) setColorBy('');
     if (!cols.includes(shapeBy)) setShapeBy('');
-  }, [cols]); // eslint-disable-line
+  }, [cols, colorBy, shapeBy]);
 
   /* layer names */
   const layerNames = useMemo(
-    () => [...new Set(edges.flatMap(e => e.layers || [e.layer]))].sort(),
+    () => [...new Set(edges.flatMap(e => e.layers || [e.layer]).filter(Boolean))].sort(layerSort),
     [edges]
   );
   const [selLayer, setSelLayer] = useState('');
@@ -332,11 +361,10 @@ const NetworkPlot = ({ nodes, edges }) => {
 
     // базовые ребра
     traces.push({
-      uid: 'edges',
       x: ex,
       y: ey,
       mode: 'lines',
-      hoverinfo: 'none',
+      hoverinfo: 'skip',
       showlegend: false,
       line: { color: baseEdgeColor, width: 1.2 },
       name: 'edges',
@@ -344,11 +372,10 @@ const NetworkPlot = ({ nodes, edges }) => {
 
     // хайлайтнутые ребра
     traces.push({
-      uid: 'edges_highlight',
       x: hEx,
       y: hEy,
       mode: 'lines',
-      hoverinfo: 'none',
+      hoverinfo: 'skip',
       showlegend: false,
       line: { color: highlightEdgeColor, width: 2.2 },
       name: 'highlight_edges',
@@ -370,9 +397,7 @@ const NetworkPlot = ({ nodes, edges }) => {
       });
 
       Object.entries(byShape).forEach(([sv, g], i) => {
-        const safe = safeId(sv);
         traces.push({
-          uid: `nodes_${safe}`,
           x: g.x,
           y: g.y,
           mode: 'markers',
@@ -424,9 +449,7 @@ const NetworkPlot = ({ nodes, edges }) => {
           sVal: null,
           ids: [],
         };
-        const safe = safeId(k);
         traces.push({
-          uid: `nodes_${safe}`,
           x: g.x,
           y: g.y,
           mode: 'markers',
@@ -448,11 +471,10 @@ const NetworkPlot = ({ nodes, edges }) => {
 
     // overlay для выделенных нод (кольца поверх нод)
     traces.push({
-      uid: 'nodes_highlight',
       x: hNx,
       y: hNy,
       mode: 'markers',
-      hoverinfo: 'none',
+      hoverinfo: 'skip',
       showlegend: false,
       marker: {
         size: 12,
@@ -557,39 +579,32 @@ const NetworkPlot = ({ nodes, edges }) => {
     [clearSelections]
   );
 
-  /* click по точке: pin label → toggle highlight center */
+  /* click по точке: first pin label, second toggle connected highlight */
   const onClick = useCallback(ev => {
     if (!ev || !ev.points || !ev.points.length) return;
-    const pt = ev.points[0];
-    const cd = pt.data?.customdata;
-    if (!cd) return;
-    const idx = pt.pointIndex;
-    const nid = String(cd[idx]);
+    const nid = pointNodeId(ev.points[0]);
+    if (!nid) return;
 
     setPinnedIds(prev => {
       const already = prev.includes(nid);
       if (!already) {
-        // первый клик по ноде → пинним подпись
         return [...prev, nid];
       }
 
-      // нода уже pinned → переключаем её как highlight center
-      setHighlightCenters(prevCenters => {
-        const exists = prevCenters.includes(nid);
-        if (exists) {
-          return prevCenters.filter(id => id !== nid);
-        }
-        return [...prevCenters, nid];
-      });
+      setHighlightCenters(prevCenters => (
+        prevCenters.includes(nid)
+          ? prevCenters.filter(id => id !== nid)
+          : [...prevCenters, nid]
+      ));
 
-      // pinned состав не меняем
       return prev;
     });
   }, []);
 
   const legendTop = shapeBy && maps.cType === 'continuous';
-  const legendCfg = legendTop
-    ? {
+  const legendCfg = useMemo(
+    () => legendTop
+      ? {
         orientation: 'h',
         x: 0.5,
         y: 1.05,
@@ -599,35 +614,31 @@ const NetworkPlot = ({ nodes, edges }) => {
         itemsizing: 'trace',
         tracegroupgap: 12,
       }
-    : {
+      : {
         orientation: 'v',
         x: 1.02,
         y: 1,
         xanchor: 'left',
         tracegroupgap: 8,
-      };
+      },
+    [legendTop]
+  );
 
-  /* ───────── Plotly-блок ───────── */
-  const PlotBox = ({ full }) => {
-    const themeInner = useTheme();
-
-    const layout = {
+  const baseLayout = useMemo(
+    () => ({
       title: 'Network Plot',
       hovermode: 'closest',
       showlegend: true,
       legend: {
         ...legendCfg,
-        font: { color: themeInner.palette.text.primary },
+        font: { color: theme.palette.text.primary },
       },
-      font: { color: themeInner.palette.text.primary },
-      margin: full
-        ? { l: 20, r: 20, t: 40, b: 20 }
-        : { l: 20, r: 60, t: legendTop ? 70 : 40, b: 20 },
-      paper_bgcolor: themeInner.palette.card.plot,
+      font: { color: theme.palette.text.primary },
+      paper_bgcolor: theme.palette.card.plot,
       plot_bgcolor:
-        themeInner.palette.mode === 'dark'
-          ? themeInner.palette.card.plot
-          : themeInner.palette.background.paper,
+        theme.palette.mode === 'dark'
+          ? theme.palette.card.plot
+          : theme.palette.background.paper,
       xaxis: {
         visible: false,
         ...(axisRef.current
@@ -642,32 +653,32 @@ const NetworkPlot = ({ nodes, edges }) => {
       },
       uirevision: 'network',
       annotations,
-    };
+    }),
+    [annotations, legendCfg, theme]
+  );
 
-    return (
-      <Plot
-        data={data}
-        layout={layout}
-        style={
-          full
-            ? { width: '100%', height: 'calc(100vh - 200px)' }
-            : { width: '100%', height: '600px' }
-        }
-        config={{
-          responsive: true,
-          toImageButtonOptions: {
-            format: 'png',
-            filename: 'netan_network',
-            scale: 4,
-          },
-        }}
-        onClick={onClick}
-        onLegendClick={onLegendClick}
-        onLegendDoubleClick={onLegendDouble}
-        onRelayout={onRelayout}
-      />
-    );
-  };
+  const renderPlot = (isFull) => (
+    <Plot
+      data={data}
+      layout={{
+        ...baseLayout,
+        margin: isFull
+          ? { l: 20, r: 20, t: 40, b: 20 }
+          : { l: 20, r: 60, t: legendTop ? 70 : 40, b: 20 },
+      }}
+      style={
+        isFull
+          ? { width: '100%', height: 'calc(100vh - 200px)' }
+          : { width: '100%', height: '600px' }
+      }
+      config={plotConfig}
+      onClick={onClick}
+      onLegendClick={onLegendClick}
+      onLegendDoubleClick={onLegendDouble}
+      onRelayout={onRelayout}
+      useResizeHandler
+    />
+  );
 
   /* ───────── UI ───────── */
   return (
@@ -718,7 +729,7 @@ const NetworkPlot = ({ nodes, edges }) => {
             setRange={setRange}
           />
 
-          <PlotBox full={false} />
+          {renderPlot(false)}
         </Card>
       </Box>
 
@@ -770,7 +781,7 @@ const NetworkPlot = ({ nodes, edges }) => {
             setRange={setRange}
           />
 
-          <PlotBox full={true} />
+          {renderPlot(true)}
         </Box>
       </Dialog>
     </>

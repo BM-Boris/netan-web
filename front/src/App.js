@@ -67,7 +67,8 @@ function MainLayout() {
   const navigate   = useNavigate();
   const theme      = useTheme();
   const colorMode  = React.useContext(ColorModeContext);
-  const isGuide = location.pathname === '/guide';
+  const isGuide = location.pathname.replace(/\/$/, '') === '/guide';
+  const toggleGuide = () => navigate(isGuide ? '/' : '/guide');
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -161,7 +162,7 @@ function MainLayout() {
             <Button
               variant="text"
               size="medium"
-              onClick={() => navigate(isGuide ? '/' : '/guide')}
+              onClick={toggleGuide}
               aria-label={isGuide ? 'Main' : 'Guide'}
               sx={{
                 px: 2,
@@ -227,9 +228,7 @@ function MainLayout() {
       >
         <Button
           color="inherit"
-          onClick={() =>
-            location.pathname === '/guide' ? navigate(-1) : navigate('/guide')
-          }
+          onClick={toggleGuide}
           sx={{ textTransform: 'none' }}
         >
           {isGuide

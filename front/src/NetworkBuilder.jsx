@@ -189,9 +189,10 @@ const NetworkBuilder = () => {
     lines.push(` - Density: ${(net.density ?? 0).toFixed(4)}`);
     lines.push(` - Components: ${net.numComponents ?? '?'}`);
     lines.push(` - Communities: ${net.numCommunities ?? '?'}`);
+    lines.push(` - Modules: ${net.numModules ?? '?'}`);
 
     /* per‑layer */
-    const layerDict = {}; // {layer:{nodes,edges,density}}
+    const layerDict = {}; // {layer:{nodes,edges,density,communities,modules}}
     Object.entries(net).forEach(([k, v]) => {
       let m, lname;
       if ((m = k.match(/^nodes_(.+)/))) {
@@ -206,6 +207,12 @@ const NetworkBuilder = () => {
           ...(layerDict[lname] || {}),
           density: typeof v === 'number' ? v.toFixed(4) : v
         };
+      } else if ((m = k.match(/^communities_(.+)/))) {
+        lname = m[1];
+        layerDict[lname] = { ...(layerDict[lname] || {}), communities: v };
+      } else if ((m = k.match(/^modules_(.+)/))) {
+        lname = m[1];
+        layerDict[lname] = { ...(layerDict[lname] || {}), modules: v };
       }
     });
 
@@ -215,7 +222,8 @@ const NetworkBuilder = () => {
         const label = l.replace(/_/g, ' ');
         lines.push(
           ` • ${label}: nodes=${s.nodes ?? '?'}, edges=${s.edges ?? '?'}, ` +
-          `density=${s.density ?? '?'}`
+          `density=${s.density ?? '?'}, communities=${s.communities ?? '?'}, ` +
+          `modules=${s.modules ?? '?'}`
         );
       });
     }

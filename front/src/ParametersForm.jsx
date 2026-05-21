@@ -210,6 +210,11 @@ const ParametersForm = ({ onChangeParams, syncAll = true, files = [] }) => {
 
   // Add state to control network parameters card visibility
   const [showNetwork, setShowNetwork] = useState(true);
+  const onChangeParamsRef = useRef(onChangeParams);
+
+  useEffect(() => {
+    onChangeParamsRef.current = onChangeParams;
+  }, [onChangeParams]);
 
   const stripSections = useCallback((obj) => {
     const clonedData = { ...obj.data };
@@ -231,11 +236,11 @@ const ParametersForm = ({ onChangeParams, syncAll = true, files = [] }) => {
       ? stripSections(updatedPreFilter)
       : updatedPreFilter.map(stripSections);
 
-    onChangeParams?.({
+    onChangeParamsRef.current?.({
       networkParams: { ...updatedNetwork },
       preFilterParams: finalPreFilter
     });
-  }, [onChangeParams, stripSections, syncAll]);
+  }, [stripSections, syncAll]);
 
   // Hide network parameters while switching sync mode, then show after a delay
   useEffect(() => {
@@ -507,11 +512,18 @@ const handleNetDialogClose    = () => setNetDialogOpen(false);
                   // 2) Числовое поле с ограничителями
                   <TextField
                     name={pDef.name}
-                    type="number"
+                    type="text"
                     value={showOff ? '' : values[pDef.name]}
-                    onChange={onChangeFn}
+                    onChange={(e) => {
+                      onChangeFn({
+                        target: {
+                          name: e.target.name,
+                          value: e.target.value.replace(',', '.')
+                        }
+                      });
+                    }}
                     onBlur={(e) => {
-                      let v = parseFloat(e.target.value);
+                      let v = parseFloat(String(e.target.value).replace(',', '.'));
                       if (Number.isNaN(v)) return;
                       const minVal = pDef.min;
                       const maxVal = pDef.max;
@@ -526,12 +538,12 @@ const handleNetDialogClose    = () => setNetDialogOpen(false);
                       step:      pDef.step ?? 'any',
                       min:       pDef.min,
                       max:       pDef.max,
-                      inputMode: 'numeric',
-                      pattern:   '[0-9]*'
+                      inputMode: 'decimal',
+                      pattern:   '[0-9]*[\\.,]?[0-9]*'
                     }}
                     onKeyDown={(e) => {
-                      const allowed = ['Backspace','Tab','ArrowLeft','ArrowRight','Delete','Home','End','.'];
-                      if (!/[0-9]/.test(e.key) && e.key !== '.' && !allowed.includes(e.key)) {
+                      const allowed = ['Backspace','Tab','ArrowLeft','ArrowRight','Delete','Home','End','.', ','];
+                      if (!/[0-9]/.test(e.key) && !allowed.includes(e.key)) {
                         e.preventDefault();
                       }
                     }}
