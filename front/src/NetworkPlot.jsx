@@ -26,7 +26,6 @@ const colType = (col, data) => {
 
 const symbols = ['circle','square','diamond','triangle-up','triangle-down','cross','x','star'];
 const hiddenNodeColumns = new Set(['id', 'x', 'y', 'feature', 'feature_id', 'compound', 'display_id']);
-const trailingNodeColumns = ['community', 'module'];
 const graphOrder = ['Entire', 'Fused', 'Consensus', 'Cross'];
 const layerSort = (a, b) => {
   const ai = graphOrder.indexOf(a);
@@ -39,8 +38,10 @@ const layerSort = (a, b) => {
 const plotLayers = e => e.plot_layers || e.plotLayers || [e.graph || e.layer].filter(Boolean);
 const nodeColumnSort = (columns) => {
   const rank = col => {
-    const idx = trailingNodeColumns.indexOf(String(col).toLowerCase());
-    return idx === -1 ? 0 : idx + 1;
+    const lower = String(col).toLowerCase();
+    if (lower.startsWith('communi')) return 1;
+    if (lower.startsWith('module')) return 2;
+    return 0;
   };
   return [...columns].sort((a, b) => {
     const ar = rank(a);

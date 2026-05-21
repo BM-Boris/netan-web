@@ -27,20 +27,30 @@ const API = 'https://api.netan.io/api/build-network/';
 const formatMetric = (value, digits = 4) => (
   typeof value === 'number' ? value.toFixed(digits) : (value ?? '?')
 );
+const formatMaybeMetric = (value, digits = 4) => {
+  if (value === null || value === undefined || value === '') return '-';
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric.toFixed(digits) : value;
+};
 
 const csvCell = (value) => {
   const s = String(value ?? '');
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-const orderedDataHeaders = (rows) => {
+const orderedDataHeaders = (rows, sampleColumns = []) => {
   const headers = [];
   rows.forEach(row => {
     Object.keys(row).forEach(key => {
       if (!headers.includes(key)) headers.push(key);
     });
   });
-  return headers;
+  const sampleSet = new Set(sampleColumns);
+  const presentSamples = sampleColumns.filter(col => headers.includes(col));
+  return [
+    ...headers.filter(col => !sampleSet.has(col)),
+    ...presentSamples,
+  ];
 };
 
 const NetworkBuilder = () => {
@@ -58,6 +68,7 @@ const NetworkBuilder = () => {
   const [buildStats, setBuildStats] = useState(null);
 
   const [dataTable, setDataTable] = useState([]);
+  const [dataSampleColumns, setDataSampleColumns] = useState([]);
 
   const [errorMessage, setErrorMessage] = useState(null);
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
@@ -94,6 +105,7 @@ const NetworkBuilder = () => {
           if (data.result.dataTable) {
             setDataTable(data.result.dataTable);
           }
+          setDataSampleColumns(data.result.dataSampleColumns || []);
           if (data.result.stats) setBuildStats(data.result.stats);
   
           setLoading(false);
@@ -121,6 +133,8 @@ const NetworkBuilder = () => {
     setNodes([]);
     setEdges([]);
     setBuildStats(null);
+    setDataTable([]);
+    setDataSampleColumns([]);
 
     const formData = new FormData();
     filesData.forEach(f => {
@@ -155,6 +169,8 @@ const NetworkBuilder = () => {
     setProgress(0);
     setTaskId(null);
     setNodes([]); setEdges([]); setBuildStats(null);
+    setDataTable([]);
+    setDataSampleColumns([]);
   };
 
   // clear polling on component unmount
@@ -210,9 +226,9 @@ const NetworkBuilder = () => {
     lines.push(` - Components: ${net.numComponents ?? '?'}`);
     lines.push(` - Communities: ${net.numCommunities ?? '?'}, modules=${net.numModules ?? '?'}`);
     lines.push(
-      ` - Thresholds: raw=${net.thresholdRaw ?? '-'}, ` +
-      `norm=${net.thresholdNorm ?? '-'}, auto=${net.autoTarget ?? '-'}, ` +
-      `k=${net.kFinal ?? '-'}`
+      ` - Thresholds: raw=${formatMaybeMetric(net.thresholdRaw)}, ` +
+      `norm=${formatMaybeMetric(net.thresholdNorm)}, auto=${formatMaybeMetric(net.autoTarget)}, ` +
+      `k=${formatMaybeMetric(net.kFinal)}`
     );
 
     /* per‑layer */
@@ -229,7 +245,7 @@ const NetworkBuilder = () => {
         lname = m[1];
         layerDict[lname] = {
           ...(layerDict[lname] || {}),
-          density: typeof v === 'number' ? v.toFixed(4) : v
+          density: formatMaybeMetric(v)
         };
       } else if ((m = k.match(/^communities_(.+)/))) {
         lname = m[1];
@@ -241,26 +257,26 @@ const NetworkBuilder = () => {
         lname = m[1];
         layerDict[lname] = {
           ...(layerDict[lname] || {}),
-          meanDegree: typeof v === 'number' ? v.toFixed(4) : v
+          meanDegree: formatMaybeMetric(v)
         };
       } else if ((m = k.match(/^meanDegreeActive_(.+)/))) {
         lname = m[1];
         layerDict[lname] = {
           ...(layerDict[lname] || {}),
-          meanDegreeActive: typeof v === 'number' ? v.toFixed(4) : v
+          meanDegreeActive: formatMaybeMetric(v)
         };
       } else if ((m = k.match(/^thrRaw_(.+)/))) {
         lname = m[1];
-        layerDict[lname] = { ...(layerDict[lname] || {}), thrRaw: v };
+        layerDict[lname] = { ...(layerDict[lname] || {}), thrRaw: formatMaybeMetric(v) };
       } else if ((m = k.match(/^thrNorm_(.+)/))) {
         lname = m[1];
-        layerDict[lname] = { ...(layerDict[lname] || {}), thrNorm: v };
+        layerDict[lname] = { ...(layerDict[lname] || {}), thrNorm: formatMaybeMetric(v) };
       } else if ((m = k.match(/^auto_(.+)/))) {
         lname = m[1];
-        layerDict[lname] = { ...(layerDict[lname] || {}), auto: v };
+        layerDict[lname] = { ...(layerDict[lname] || {}), auto: formatMaybeMetric(v) };
       } else if ((m = k.match(/^k_(.+)/))) {
         lname = m[1];
-        layerDict[lname] = { ...(layerDict[lname] || {}), k: v };
+        layerDict[lname] = { ...(layerDict[lname] || {}), k: formatMaybeMetric(v) };
       }
     });
 
@@ -321,7 +337,7 @@ const NetworkBuilder = () => {
   const handleDownloadData = () => {
     if (!dataTable.length) return;
   
-    const headers = orderedDataHeaders(dataTable);
+    const headers = orderedDataHeaders(dataTable, dataSampleColumns);
   
     // 2) Строим CSV-строки
     const lines = [];

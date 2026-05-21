@@ -189,6 +189,11 @@ def _sample_last_columns(columns, sample_ids) -> list[str]:
     return [col for col in cols if col not in sample_cols] + sample_cols
 
 
+def _data_sample_columns(rows: list[dict], sample_ids) -> list[str]:
+    keys = {str(key) for row in rows for key in row}
+    return [sid for sid in map(str, sample_ids) if sid in keys]
+
+
 def _unique_layer_names(rodins: list[object]) -> list[str]:
     reserved = {"entire", "fused", "consensus", "cross"}
     seen: set[str] = set()
@@ -637,6 +642,7 @@ def _network_worker(task_id: str,
             raise ValueError("No edges. Lower the threshold or increase auto target.")
 
         data_table = _data_table_from_rodins(nt)
+        data_sample_columns = _data_sample_columns(data_table, nt.sample_ids)
 
         payload = {
             "networkMethod": mth,
@@ -650,6 +656,7 @@ def _network_worker(task_id: str,
             "edges":        edges_json,
             "stats":        {"fileStats": fstats, "networkStats": nstats},
             "dataTable":    data_table,
+            "dataSampleColumns": data_sample_columns,
         }
 
         set_progress(100)
